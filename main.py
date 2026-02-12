@@ -1,4 +1,5 @@
 import os
+import re
 import flet as ft
 import uuid
 import asyncio
@@ -11,7 +12,6 @@ from pathlib import Path
 # TODO: Rewrite this for better DB structure
 # TODO: Add fingerboarding intervals type training
 # TODO: Handle Core training exercises
-# TODO: Show PB on current set, not only last time
 # TODO: Mark sessions with PB and historical PB
 # TODO: Import from XLSX
 # TODO: Export to XLSX
@@ -60,6 +60,7 @@ def create_if_not_exists(path: str):
             f.write("[]")
 
 def get_sets_list(training: dict):
+    sets = []
     supersets = {}
     for ex in training["exercises"]:
         if ex["superset_id"].strip():
@@ -86,6 +87,41 @@ def get_sets_list(training: dict):
 
             superset_visited.add(s_id)
     return sets
+
+
+def normalize_string(value: str | int | float) -> float:
+    if isinstance(value, int) or isinstance(value, float):
+        return float(value)
+
+    cleaned = re.sub(r"[^0-9.,]", "", value)
+    cleaned = cleaned.replace(",", ".")
+    
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0
+
+
+def get_pb_for_training(sessions: list, exercise_id: str) -> tuple[float, int, float]:
+    max_weight = 0.0
+    max_reps = 0
+    session_date = 0.0
+    for s in sessions:
+        for set in s["sets"]:
+            if set["id"] != exercise_id:
+                continue
+            w = normalize_string(set["weight"])
+            r = int(normalize_string(set["reps"]))
+            if w > max_weight:
+                max_weight = w
+                max_reps = r
+                session_date = s["date"] 
+            if w == max_weight and r > max_reps:
+                max_reps = r
+                session_date = s["date"]
+
+    return max_weight, max_reps, session_date
+
 
 def get_session_pb_emoji(sessions: list, session_idx: int) -> str:
     # TODO - get this
@@ -425,10 +461,16 @@ async def main(page: ft.Page):
 
         def add_set_header(page, ex, last_session, set_index):
             superset_string = f"Superseria {ex['superset_id']}: " if ex["superset_id"].strip() else ""
+            max_weight, max_reps, session_date = get_pb_for_training(sessions, ex["id"])
+            session_date = datetime.datetime.fromtimestamp(session_date)
             page.add(
                 ft.Text(f"{superset_string}{ex['name']} – seria {ex['current_set']}/{ex['sets']}", size=22),
                 ft.Text(f"Proponowane {ex['suggested_weight']} x {ex['suggested_reps']}", size=22),
             )
+            if max_weight or max_reps:
+                page.add(
+                    ft.Text(f"Twój max: {max_weight} kg x {max_reps} ({session_date})")
+                )
             if last_session and set_index < len(last_session['sets']):
                 last_set = last_session['sets'][set_index]
                 page.add(
