@@ -137,6 +137,7 @@ def get_session_pb_emoji(sessions: list, session_idx: int) -> str:
 async def main(page: ft.Page):
     page.title = "FireBoar"
     page.scroll = "auto"
+    os.makedirs("assets", exist_ok=True)
     create_if_not_exists(trainings_path)
     create_if_not_exists(sessions_path)
 
