@@ -1,0 +1,21 @@
+# Serve correct MIME for Flutter module files
+AddType text/javascript .mjs
+AddType application/wasm .wasm
+
+# Ensure manifest is correct
+AddType application/manifest+json .webmanifest
+AddType application/json .json
+
+# Allow service worker
+<FilesMatch "flutter_service_worker.js">
+  Header set Cache-Control "no-cache"
+</FilesMatch>
+
+# SPA fallback (important for Flet routing)
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.html$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+

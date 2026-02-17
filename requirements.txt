@@ -1,4 +1,0 @@
-flet==0.80.5
-flet-cli
-flet-desktop-light
-flet_web

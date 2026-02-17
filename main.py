@@ -19,45 +19,52 @@ from pathlib import Path
 # TODO: Better layout
 # TODO: Add FireBoar logo
 
-trainings_path = os.path.join("assets", "trainings.json")
-sessions_path = os.path.join("assets", "sessions.json")
+STORAGE_TRAININGS = "trainings"
+STORAGE_TRAINING = "training"
+STORAGE_SESSIONS = "sessions"
+STORAGE_SESSION = "session"
 
-async def load_trainings(page: ft.Page):
-    with open(trainings_path) as f:
-        db = json.loads(f.read())
-    raw = db or []
-    return raw
+async def load_trainings(page: ft.Page) -> list[dict]:
+    names = json.loads(await page.shared_preferences.get(STORAGE_TRAININGS) or '[]')
+    data = []
+    for name in names:
+        data.append(json.loads(await page.shared_preferences.get(STORAGE_TRAINING + ":" + name)))
 
-async def load_sessions(page: ft.Page):
-    with open(sessions_path) as f:
-        db = json.loads(f.read())
-    raw = db or []
-    return raw
+    return data
 
-async def save_trainings(page: ft.Page, trainings):
-    with open(trainings_path, "w") as f:
-        f.write(json.dumps(trainings))
+async def load_sessions(page: ft.Page) -> list[dict]:
+    names = json.loads(await page.shared_preferences.get(STORAGE_SESSIONS) or '[]')
+    data = []
+    for name in names:
+        data.append(json.loads(await page.shared_preferences.get(STORAGE_SESSION + ":" + name)))
+    return data
 
-async def save_sessions(page: ft.Page, sessions):
-    with open(sessions_path, "w") as f:
-        f.write(json.dumps(sessions))
+async def save_trainings(page: ft.Page, trainings: list[dict]):
+    # TODO - remove old
+    ts = {t["id"]: t for t in trainings}
+    await page.shared_preferences.set(STORAGE_TRAININGS, json.dumps(list(ts.keys())))
+    for name, t in ts.items():
+        await page.shared_preferences.set(STORAGE_TRAINING + ":" + name, json.dumps(t))
+
+async def save_sessions(page: ft.Page, sessions: list[dict]):
+    # TODO - remove old
+    ss = {s["id"]: s for s in sessions}
+    await page.shared_preferences.set(STORAGE_SESSIONS, json.dumps(list(ss.keys())))
+    for name, s in ss.items():
+        await page.shared_preferences.set(STORAGE_SESSION + ":" + name, json.dumps(s))
 
 async def get_training(page: ft.Page, id: str):
-    trainings = await load_trainings(page)
-    return [t for t in trainings if t["id"] == id][0]
+    return json.loads(await page.shared_preferences.get(STORAGE_TRAINING + ":" + id) or '{}')
 
 async def delete_training_from_list(page: ft.Page, id: str):
+    # TODO - more efficiently
     trainings = await load_trainings(page)
     await save_trainings(page, [t for t in trainings if t["id"] != id])
 
 async def delete_session_from_list(page: ft.Page, id: str):
+    # TODO - more efficiently
     sessions = await load_sessions(page)
     await save_sessions(page, [s for s in sessions if s["id"] != id])
-
-def create_if_not_exists(path: str):
-    if not os.path.exists(path):
-        with open(path, "w") as f:
-            f.write("[]")
 
 def get_sets_list(training: dict):
     sets = []
@@ -137,9 +144,6 @@ def get_session_pb_emoji(sessions: list, session_idx: int) -> str:
 async def main(page: ft.Page):
     page.title = "FireBoar"
     page.scroll = "auto"
-    os.makedirs("assets", exist_ok=True)
-    create_if_not_exists(trainings_path)
-    create_if_not_exists(sessions_path)
 
     async def show_home():
         trainings = await load_trainings(page)
@@ -147,12 +151,19 @@ async def main(page: ft.Page):
         page.controls.clear()
         page.bgcolor = "#222222"
 
+        os.makedirs("uploads", exist_ok=True)
 
         async def upload_json_file(e):
             if e.progress != 1.0:
                 return
             # TODO - data verification
-            shutil.copyfile(Path("uploads") / Path("trainings.json"), trainings_path) 
+
+            file_path = os.path.join("uploads", "trainings.json")
+
+            with open(file_path, "r") as f:
+                data = json.load(f)
+            
+            await save_trainings(page, data)
             await save_sessions(page, [])
             page.show_dialog(ft.AlertDialog(
                 title=ft.Text("Dane zaimportowane"),
@@ -166,7 +177,7 @@ async def main(page: ft.Page):
 
         async def import_json_file(e):
             files = await json_file_picker.pick_files(
-                    allow_multiple=False
+                allow_multiple=False
             )
             if not files:
                 return
@@ -183,6 +194,14 @@ async def main(page: ft.Page):
                 ]
             )
 
+        async def export_json(e):
+            trainings = await load_trainings(page)
+            await json_file_picker.save_file(
+                dialog_title="Zapisz treningi",
+                file_name="fireboar_trainings.json",
+                src_bytes=json.dumps(trainings).encode("utf-8"),
+            )   
+
         json_file_picker = ft.FilePicker(on_upload=upload_json_file)
 
         page.add(
@@ -190,7 +209,7 @@ async def main(page: ft.Page):
             ft.Row([
                 ft.Button("➕ Dodaj trening", on_click=show_add_training),
                 ft.Button("> Importuj JSON", on_click=import_json_file),
-                ft.Button("< Eksportuj JSON", disabled=False)
+                ft.Button("< Eksportuj JSON", on_click=export_json)
             ]),
         )
 
