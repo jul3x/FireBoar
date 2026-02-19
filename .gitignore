@@ -163,6 +163,4 @@ cython_debug/
 storage/
 uploads/
 example_data/
-assets/trainings.json
-assets/sessions.json
 

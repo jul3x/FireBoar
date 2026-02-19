@@ -1,21 +1,18 @@
 [project]
 name = "FireBoar"
 version = "0.1.0"
-description = ""
+description = "Poczuj w sobie siłę dzika!"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "Julian Prolejko", email = "self@j3x.dev" }
 ]
 dependencies = [
-    "flet>=0.80.5"
+    "flet>=0.80.5",
 ]
 
 [dependency-groups]
 dev = [
-    "flet-cli>=0.80.5",
-    "flet-desktop-light>=0.80.5",
-    "flet-web>=0.80.5",
 ]
 
 [tool.flet]
@@ -23,3 +20,14 @@ org = "J3X.dev"
 product = "FireBoar"
 company = "j3x"
 copyright = "Copyright (C) 2023-2026 by J3X"
+
+[tool.flet.app.boot_screen]
+show = true
+message = "Przygotowuję dzikie linijki kodu podczas pierwszego odpalenia, chwileczkę..."
+
+[tool.flet.app.startup_screen]
+show = true
+message = "Rozgrzewam się..."
+
+[tool.flet.app]
+exclude = [".git", "env", "dist", "example_data", "splash", "uploads", "build"]

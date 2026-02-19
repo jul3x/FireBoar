@@ -144,6 +144,13 @@ async def main(page: ft.Page):
     page.title = "FireBoar"
     page.scroll = "auto"
 
+    logo = ft.Image(
+        src="logo.png",
+        width=300,
+        height=300,
+    )
+
+
     async def show_home():
         trainings = await load_trainings()
         sessions = await load_sessions()
@@ -211,8 +218,8 @@ async def main(page: ft.Page):
                 expand=True,
                 alignment=ft.Alignment.TOP_CENTER, 
                 content=ft.Column([
-                        ft.Text("FireBoar", size=26, weight="bold", text_align="CENTER"),
-                        ft.Text("Poczuj w sobie siłę dzika", size=20, weight="bold", text_align="center"),
+                        logo,
+                        ft.Text("Poczuj w sobie siłę dzika!", size=20, weight="bold", text_align="center"),
                         ft.Text(""),
                         ft.Button("➕ Dodaj trening", on_click=show_add_training, expand=True, width=2000, height=50),
                         ft.Button("↗ Importuj JSON", on_click=import_json_file, expand=True, width=2000, height=50),
