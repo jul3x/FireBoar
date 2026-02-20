@@ -32,6 +32,7 @@ async def main(page: ft.Page):
     os.makedirs("uploads", exist_ok=True)
     async def show_home():
         await home_ui(page, show_add_training, edit_training, delete_training, start_training, show_sessions)
+
     async def show_sessions(e):
         sessions = await load_sessions()
         training_data = e.control.data
