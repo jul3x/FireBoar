@@ -32,6 +32,9 @@ async def save_trainings(trainings: list[Training]):
     for name, t in ts.items():
         await ft.SharedPreferences().set(STORAGE_TRAINING + ":" + name, t.to_json())
 
+async def save_training(training: Training):
+    await ft.SharedPreferences().set(STORAGE_TRAINING + ":" + training.id, training.to_json())
+
 async def save_sessions(sessions: list[Session]):
     # TODO - remove old
     ss = {s.id: s for s in sessions}

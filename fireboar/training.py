@@ -156,6 +156,30 @@ class Training:
     def remove_exercise(self, id: str):
         self.exercises = [ex for ex in self.exercises if ex.id != id]
 
+    def move_exercise_down(self, ex_id: str):
+        exercise_idx = len(self.exercises)
+        for i in range(len(self.exercises)):
+            if self.exercises[i].id == ex_id:
+                exercise_idx = i
+        if exercise_idx > len(self.exercises) - 2:
+            return
+
+        exercise_after = self.exercises[exercise_idx + 1]
+        self.exercises[exercise_idx + 1] = self.exercises[exercise_idx]
+        self.exercises[exercise_idx] = exercise_after
+
+    def move_exercise_up(self, ex_id: str):
+        exercise_idx = -1
+        for i in range(len(self.exercises)):
+            if self.exercises[i].id == ex_id:
+                exercise_idx = i
+        if exercise_idx < 1:
+            return
+
+        exercise_before = self.exercises[exercise_idx - 1]
+        self.exercises[exercise_idx - 1] = self.exercises[exercise_idx]
+        self.exercises[exercise_idx] = exercise_before
+
 
 @dataclass_json
 @dataclass(slots=True)

@@ -1,58 +1,67 @@
 import flet as ft
-from fireboar.storage import load_trainings, save_trainings
+from fireboar.storage import load_trainings, save_trainings, get_training, save_training
 from fireboar.utils import show_dialog
 from fireboar.training import Exercise, Training
 
 
 async def training_edit_ui(training_id: str, page: ft.Page, home_function):
     page.controls.clear()
-    trainings = await load_trainings()
-    idx = 0
-    for i, t in enumerate(trainings):
-        if t.id == training_id:
-            idx = i
+    training = await get_training(training_id)
 
     async def add_exercise(e):
-        trainings[idx].add_exercise()
-        await save_trainings(trainings)
-        await training_edit_ui(training_id, page, home_function)
+        training.add_exercise()
+        ex_id = training.exercises[-1].id
+        ex_cards[ex_id] = create_card(training.exercises[-1])
+        cards_container.controls.append(ex_cards[ex_id])
+        page.update()
+
+    async def move_exercise_up(e):
+        training.move_exercise_up(e.control.data)
+        cards_container.controls = []
+        for ex in training.exercises:
+            cards_container.controls.append(ex_cards[ex.id])
+        page.update()
+
+    async def move_exercise_down(e):
+        training.move_exercise_down(e.control.data)
+        cards_container.controls = []
+        for ex in training.exercises:
+            cards_container.controls.append(ex_cards[ex.id])
+        page.update()
 
     async def remove_exercise(e):
-        trainings[idx].remove_exercise(e.control.data)
-        await save_trainings(trainings)
-        await training_edit_ui(training_id, page, home_function)
+        training.remove_exercise(e.control.data)
+        cards_container.controls = [c for c in cards_container.controls if not c is ex_cards[e.control.data]]
+        del ex_cards[e.control.data]
+        page.update()
 
-    async def save_training(e):
-        await save_trainings(trainings)
+    async def save_training_button(e):
+        await save_training(training)
         await show_dialog(page, "Ćwiczenia ogarnięte", "Teraz tylko ładować.", "Ok")
         await home_function()
 
-    page.add(
-        ft.Text(f"Edycja treningu: {trainings[idx].name}", size=22),
-        ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise),
-    )
-
-    ex_headers = {}
-    for ex in trainings[idx].exercises:
-        ex_headers[ex.id] = ft.Text(ex.name or 'Kliknij by rozwinąć')
-        page.add(
-            ft.Card(
-                ft.Container(
+    def create_card(ex: Exercise):
+        header = ft.Text(ex.name or 'Kliknij by rozwinąć')
+        return ft.Card(
+            ft.Container(
                     padding=10,
                     expand=True,
                     content=ft.ExpansionTile(
                         title=ft.Row(controls=[
-                            ex_headers[ex.id],
-                            ft.Button("Usuń", on_click=remove_exercise, data=ex.id),
+                            header,
                         ]),
                         controls=ft.Column(
                             controls=[
-                            ft.Text(""),
+                            ft.Row([
+                                ft.Button("Usuń", on_click=remove_exercise, data=ex.id, height=50),
+                                ft.Button("Wyżej", on_click=move_exercise_up, data=ex.id, height=50),
+                                ft.Button("Niżej", on_click=move_exercise_down, data=ex.id, height=50),
+                            ]),
                             ft.TextField(
                                 label="Nazwa",
                                 expand=True,
                                 value=ex.name,
-                                on_change=lambda e, ex=ex: ex.set_name(e.control.value, ex_headers[ex.id]),
+                                on_change=lambda e, ex=ex, header=header: ex.set_name(e.control.value, header),
                             ),
                             ft.TextField(
                                 label="Serie",
@@ -91,10 +100,24 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                     )
                 )
             )
-        )
 
+
+    page.add(
+        ft.Text("Edycja treningu:", size=22),
+        ft.Text(f"{training.name}", size=22),
+        ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise),
+    )
+
+    ex_headers = {}
+    ex_cards = {}
+    cards_container = ft.Column([])
+    for ex in training.exercises:
+        ex_cards[ex.id] = create_card(ex)
+        cards_container.controls.append(ex_cards[ex.id])
+
+    page.add(cards_container)
     page.add(ft.Row([
-        ft.Button("Zapisz", on_click=save_training),
+        ft.Button("Zapisz", on_click=save_training_button),
         ft.TextButton("⬅ Wróć", on_click=home_function)
     ]))
     page.update()

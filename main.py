@@ -19,6 +19,9 @@ from fireboar.pages.start import start_ui
 # TODO: Add fingerboarding / cluster pullups intervals type training
 # TODO: Handle Core training exercises
 # TODO: Mark sessions with PB and historical PB
+# TODO: Propose existing superseries
+# TODO: Mark superseries the same color
+# TODO: Add info during rest: Next exercise
 # TODO: Import from XLSX
 # TODO: Export to XLSX
 
