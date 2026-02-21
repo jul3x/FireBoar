@@ -1,7 +1,7 @@
 import flet as ft
 from fireboar.storage import load_trainings, save_trainings, get_training, save_training
 from fireboar.utils import show_dialog
-from fireboar.training import Exercise, Training
+from fireboar.training import Exercise, Training, ExerciseType, IntervalConfig
 
 
 def string_to_hex_color(s: str) -> str:
@@ -93,6 +93,11 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         ex.set_superset(superset)
         ex_cards[ex.id].content.bgcolor = ft.Colors.with_opacity(0.1, string_to_hex_color(superset))
 
+    def set_exercise_type(ex: Exercise, type: ExerciseType, interval_fields: list):
+        ex.type = type
+        for f in interval_fields:
+            f.visible = ex.type == ExerciseType.INTERVAL
+
     async def save_training_button(e):
         await save_training(training)
         await show_dialog(page, "Ćwiczenia ogarnięte", "Teraz tylko ładować.", "Ok")
@@ -100,6 +105,31 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
 
     def create_card(ex: Exercise):
         header = ft.Text(ex.name or 'Kliknij by rozwinąć')
+
+        interval_fields = [
+            ft.TextField(
+                label="Liczba interwałów w serii",
+                expand=True,
+                value=str(ex.interval_config.intervals),
+                visible=ex.type == ExerciseType.INTERVAL,
+                on_change=lambda e, ex=ex: ex.interval_config.set_intervals(e.control.value),
+            ),
+            ft.TextField(
+                label="Czas trwania wysiłku w interwale",
+                expand=True,
+                value=str(ex.interval_config.working_time),
+                visible=ex.type == ExerciseType.INTERVAL,
+                on_change=lambda e, ex=ex: ex.interval_config.set_working_time(e.control.value),
+            ),
+            ft.TextField(
+                label="Czas restu pomiędzy",
+                expand=True,
+                value=str(ex.interval_config.rest_time),
+                visible=ex.type == ExerciseType.INTERVAL,
+                on_change=lambda e, ex=ex: ex.interval_config.set_rest_time(e.control.value),
+            ),
+        ]
+
         return ft.Card(
             ft.Container(
                     padding=10,
@@ -118,6 +148,15 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                                 ft.Button("Wyżej", on_click=move_exercise_up, data=ex.id, height=50),
                                 ft.Button("Niżej", on_click=move_exercise_down, data=ex.id, height=50),
                             ]),
+                            ft.RadioGroup(
+                                expand=True,
+                                value=ex.type,
+                                content=ft.Row([
+                                    ft.Radio(value=ExerciseType.NORMAL, label="normalnie"),
+                                    ft.Radio(value=ExerciseType.INTERVAL, label="interwały"),
+                                ]),
+                                on_change=lambda e, ex=ex, fields=interval_fields: set_exercise_type(ex, e.control.value, fields),
+                            ),
                             ft.Container(),
                             ft.TextField(
                                 label="Nazwa",
@@ -144,7 +183,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                                 on_change=lambda e, ex=ex: ex.set_reps(e.control.value),
                             ),
                             ft.TextField(
-                                label="Rest (sek)",
+                                label="Rest pomiędzy seriami (sek)",
                                 expand=True,
                                 value=str(ex.rest_seconds),
                                 on_change=lambda e, ex=ex: ex.set_rest(e.control.value),
@@ -155,6 +194,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                                 value=str(ex.superset_id),
                                 on_change=lambda e, ex=ex: set_superset(ex, e.control.value),
                             ),
+                            *interval_fields,
                             ft.Text(""),
                         ]),
                         expanded=False, # Controls initial state

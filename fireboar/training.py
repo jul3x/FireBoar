@@ -3,8 +3,48 @@ import re
 import uuid
 import json
 import datetime
+from enum import StrEnum
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
+
+
+class ExerciseType(StrEnum):
+    NORMAL = "NORMAL"
+    INTERVAL = "INTERVAL"
+
+@dataclass_json
+@dataclass(slots=True)
+class IntervalConfig:
+    intervals: int = 1
+    working_time: int = 15
+    rest_time: int = 15
+
+    def set_intervals(self, v: str):
+        value = 1
+        try:
+            value = int(v.strip() or 1)
+        except ValueError:
+            pass
+
+        self.intervals = value
+
+    def set_working_time(self, v: str):
+        value = 15
+        try:
+            value = int(v.strip() or 15)
+        except ValueError:
+            pass
+
+        self.working_time = value
+
+    def set_rest_time(self, v: str):
+        value = 15
+        try:
+            value = int(v.strip() or 15)
+        except ValueError:
+            pass
+
+        self.rest_time = value
 
 
 @dataclass_json
@@ -17,6 +57,8 @@ class Exercise:
     suggested_reps: str = "8 - 10"
     rest_seconds: int = 60
     superset_id: str = ""
+    type: ExerciseType = ExerciseType.NORMAL
+    interval_config: IntervalConfig = field(default_factory=IntervalConfig)
 
     def set_name(self, name: str, header):
         self.name = name.strip()
@@ -48,6 +90,12 @@ class Exercise:
 
     def set_superset(self, id: str):
         self.superset_id = id.strip()
+
+
+class TrainingAction(StrEnum):
+    REST = "REST"
+    SUMMARY = "SUMMARY"
+    INTERVAL_WORK = "INTERVAL_WORK"
 
 
 @dataclass_json
@@ -82,11 +130,14 @@ class SessionSet:
 
         return [
             f"{superset_string}{self.get_name()} – seria {self.set_index}/{self.exercise.sets}",
-            f"Proponowane {self.exercise.suggested_weight} x {self.exercise.suggested_reps}",
+            f"📔 Proponowane {self.exercise.suggested_weight} x {self.exercise.suggested_reps}",
         ]
 
     def get_last_info(self) -> str:
-        return f"Ostatnio: {self.weight} x {self.reps} ({self.notes})"
+        return f"⌚ Ostatnio: {self.weight} x {self.reps} ({self.notes})"
+
+    def get_action_list(self) -> list[TrainingAction]:
+        return [TrainingAction.SUMMARY, TrainingAction.REST]
 
 
 @dataclass_json
@@ -222,7 +273,7 @@ class PersonalBest:
         )
 
     def get_str(self) -> str:
-        return f"Twój max: {self.max_weight} kg x {self.max_reps} ({self.session_date})"
+        return f"🥇 Twój max: {self.max_weight} kg x {self.max_reps} ({self.session_date})"
 
 
 def normalize_string(value: str | int | float) -> float:

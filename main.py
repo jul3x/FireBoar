@@ -12,7 +12,7 @@ from fireboar.utils import show_dialog
 from fireboar.pages.training_edit import training_edit_ui, training_add_ui
 from fireboar.pages.home import home_ui
 from fireboar.pages.sessions import sessions_show_ui
-from fireboar.pages.start import start_ui
+from fireboar.pages.start import start_entry_ui
 
 # TODO: Sounds of beeping for sessions
 # TODO: Rewrite this for better DB structure
@@ -53,7 +53,7 @@ async def main(page: ft.Page):
     async def start_training(event):
         training = await get_training(event.control.data)
         sessions = await load_sessions()
-        await start_ui(training, sessions, page, home_function=show_home)
+        await start_entry_ui(training, sessions, page, home_function=show_home)
 
     await show_home()
 
