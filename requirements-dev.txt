@@ -1,3 +1,5 @@
+flet
 flet-cli
 flet-desktop-light
 flet_web
+flet-audio

@@ -9,6 +9,19 @@ from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
 
 
+def normalize_string(value: str | int | float) -> float:
+    if isinstance(value, int) or isinstance(value, float):
+        return float(value)
+
+    cleaned = re.sub(r"[^0-9.,]", "", value)
+    cleaned = cleaned.replace(",", ".")
+
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0
+
+
 class ExerciseType(StrEnum):
     NORMAL = "NORMAL"
     INTERVAL = "INTERVAL"
@@ -22,39 +35,21 @@ class IntervalConfig:
     rest_time: int = 15
 
     def set_intervals(self, v: str):
-        value = 1
-        try:
-            value = int(v.strip() or 1)
-        except ValueError:
-            pass
-
+        value = int(normalize_string(v)) or self.intervals
         if value < 1:
             value = 1
-
         self.intervals = value
 
     def set_working_time(self, v: str):
-        value = 15
-        try:
-            value = int(v.strip() or 15)
-        except ValueError:
-            pass
-
+        value = int(normalize_string(v)) or self.working_time
         if value < 1:
             value = 1
-
         self.working_time = value
 
     def set_rest_time(self, v: str):
-        value = 15
-        try:
-            value = int(v.strip() or 15)
-        except ValueError:
-            pass
-
+        value = int(normalize_string(v)) or self.rest_time
         if value < 1:
             value = 1
-
         self.rest_time = value
 
 
@@ -76,15 +71,9 @@ class Exercise:
         header.value = name.strip()
 
     def set_sets(self, sets: str):
-        value = 1
-        try:
-            value = int(sets.strip() or 1)
-        except ValueError:
-            pass
-
+        value = int(normalize_string(sets)) or self.sets
         if value < 1:
             value = 1
-
         self.sets = value
 
     def set_weight(self, weight: str):
@@ -94,15 +83,9 @@ class Exercise:
         self.suggested_reps = reps.strip()
 
     def set_rest(self, rest: str):
-        value = 60
-        try:
-            value = int(rest.strip() or 60)
-        except ValueError:
-            pass
-
+        value = int(normalize_string(rest)) or self.rest_seconds
         if value < 1:
             value = 1
-
         self.rest_seconds = value
 
     def set_superset(self, id: str):
@@ -321,18 +304,5 @@ class PersonalBest:
 
     def get_str(self) -> str:
         return f"{self.max_weight} kg x {self.max_reps} ({self.session.get_date()})"
-
-
-def normalize_string(value: str | int | float) -> float:
-    if isinstance(value, int) or isinstance(value, float):
-        return float(value)
-
-    cleaned = re.sub(r"[^0-9.,]", "", value)
-    cleaned = cleaned.replace(",", ".")
-
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
 
 

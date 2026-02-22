@@ -5,6 +5,7 @@ from fireboar.storage import load_trainings, load_sessions, save_sessions
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
 
+beep=fta.Audio("beep.mp3")
 
 def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None, sessions: list[Session], last_session: Session | None, set_index: int):
     pb = PersonalBest.get_pb_for_training(sessions, ex.exercise.id)
@@ -102,7 +103,6 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             exited_flag.set()
             saved_flag.set()
 
-    beep=fta.Audio("beep.mp3")
     async def start_rest(action=None, is_start=False, next_set=None):
         page.controls.clear()
         page.bgcolor = "#004422"
