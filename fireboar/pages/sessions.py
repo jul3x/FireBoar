@@ -11,17 +11,18 @@ async def sessions_show_ui(training: Training, sessions: list[Session], page: ft
     )
 
     async def delete_session(e):
-        await delete_session_from_list(e.control.data)
-        e.control.data = training
+        async def delete_session_confirmed():
+            await delete_session_from_list(e.control.data)
+            sessions = await load_sessions()
+            sessions_for_t = training.get_sessions(sessions)
+            await sessions_show_ui(training, sessions_for_t, page, home_function)
         await show_dialog(
             page,
-            "Sesyjka usunięta",
+            "Usunąć sesyjkę?",
             "Wstydzisz się ciężaru?",
             "Dzień chrabonszcza",
+            action_cb=delete_session_confirmed,
         )
-        sessions = await load_sessions()
-        sessions_for_t = training.get_sessions(sessions)
-        await sessions_show_ui(training, sessions_for_t, page, home_function)
 
     pbs = {exercise.id: PersonalBest.get_pb_for_training(sessions, exercise.id) for exercise in training.exercises}
     for session_idx, s in enumerate(sessions):

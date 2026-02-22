@@ -5,7 +5,6 @@ from fireboar.storage import load_trainings, load_sessions, save_sessions
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
 
-beep=fta.Audio("beep.mp3")
 
 def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None, sessions: list[Session], last_session: Session | None, set_index: int):
     pb = PersonalBest.get_pb_for_training(sessions, ex.exercise.id)
@@ -69,6 +68,7 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
 
 async def start_ui(training: Training, sessions: list[Session], last_session: Session | None, page: ft.Page, home_function):
     page.controls.clear()
+    beep=fta.Audio("beep.mp3")
 
     timer_text = ft.Text(size=40, weight="bold", width=4000, text_align="center")
     weight = ft.TextField(label="Obciążenie", border_color="#555555", color="#ffffff", bgcolor="#222222", expand=True)

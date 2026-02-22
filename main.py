@@ -44,9 +44,16 @@ async def main(page: ft.Page):
         await training_edit_ui(training_id=event.control.data, page=page, home_function=show_home)
 
     async def delete_training(event):
-        await delete_training_from_list(event.control.data)
-        await show_dialog(page, "Trening usunięty", "W sumie smutno.", "Ok")
-        await show_home()
+        async def delete_training_confirmed():
+            await delete_training_from_list(event.control.data)
+            await show_home()
+        await show_dialog(
+            page,
+            "Trening do kosza?",
+            "Kończysz karierę, siostro w wierze?",
+            "Boję się cierpienia",
+            action_cb=delete_training_confirmed,
+        )
 
     async def start_training(event):
         training = await get_training(event.control.data)
