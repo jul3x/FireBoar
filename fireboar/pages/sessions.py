@@ -39,7 +39,7 @@ async def sessions_show_ui(training: Training, sessions: list[Session], page: ft
                 )
             )
         session_suffix = ""
-        if s.id in {pb.session.id for pb in pbs.values()}:
+        if s.id in {pb.session.id for pb in pbs.values() if pb}:
             session_suffix = " 🥇"
         page.add(
             ft.Card(
