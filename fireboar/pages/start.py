@@ -1,5 +1,6 @@
 import asyncio
 import flet as ft
+import flet_audio as fta
 from fireboar.storage import load_trainings, load_sessions, save_sessions
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
@@ -101,6 +102,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             exited_flag.set()
             saved_flag.set()
 
+    beep=fta.Audio("beep.mp3")
     async def start_rest(action=None, is_start=False, next_set=None):
         page.controls.clear()
         page.bgcolor = "#004422"
@@ -115,6 +117,8 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
                 timer_text.value = f"\nStartujemy za: \n⏱ {i}s\n"
             else:
                 timer_text.value = f"\nRest: \n⏱ {i}s\n"
+            if i == 3:
+                await beep.play()
             if i < 4:
                 timer_text.value += "Przygotuj się!\n"
             page.update()
@@ -122,6 +126,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         hf = ft.HapticFeedback()
         await hf.heavy_impact()
+        await beep.pause()
 
     async def start_rest_interval(action):
         page.controls.clear()
@@ -134,6 +139,8 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         timer_seconds = ex.exercise.interval_config.rest_time
         for i in range(timer_seconds, 0, -1):
             timer_text.value = f"\nRest interwałowy: \n⏱ {i}s\n"
+            if i == 3:
+                await beep.play()
             if i < 4:
                 timer_text.value += "Przygotuj się!\n"
             page.update()
@@ -141,6 +148,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         hf = ft.HapticFeedback()
         await hf.heavy_impact()
+        await beep.pause()
 
     async def start_working_interval(action):
         page.controls.clear()
@@ -153,6 +161,8 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         timer_seconds = ex.exercise.interval_config.working_time
         for i in range(timer_seconds, 0, -1):
             timer_text.value = f"\nŁaduj: ⏱ {i}s\n"
+            if i == 3:
+                await beep.play()
             if i < 4:
                 timer_text.value += "Już prawie...\n"
             page.update()
@@ -160,6 +170,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         hf = ft.HapticFeedback()
         await hf.heavy_impact()
+        await beep.pause()
 
     async def show_set_input(saved, exited, action):
         ex = sets[set_index]

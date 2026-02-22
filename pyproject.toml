@@ -9,6 +9,7 @@ authors = [
 ]
 dependencies = [
     "flet>=0.80.5",
+    "flet-audio>=0.80.5",
     "dataclasses-json",
 ]
 

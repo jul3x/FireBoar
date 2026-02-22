@@ -15,8 +15,6 @@ from fireboar.pages.sessions import sessions_show_ui, pb_show_ui
 from fireboar.pages.start import start_entry_ui
 
 # TODO: Sounds of beeping for sessions
-# TODO: Mark sessions with PB and historical PB
-# TODO: Propose existing superseries
 # TODO: Import from XLSX
 # TODO: Export to XLSX
 
@@ -25,6 +23,7 @@ async def main(page: ft.Page):
     page.scroll = "auto"
 
     os.makedirs("uploads", exist_ok=True)
+
     async def show_home():
         await home_ui(page, show_add_training, edit_training, delete_training, start_training, show_sessions, show_pb)
 
@@ -59,5 +58,5 @@ async def main(page: ft.Page):
     await show_home()
 
 
-ft.run(main, upload_dir="uploads")
+ft.run(main, assets_dir="assets", upload_dir="uploads")
 
