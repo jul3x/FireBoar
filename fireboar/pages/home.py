@@ -1,7 +1,7 @@
 import flet as ft
 from dataclasses import dataclass
 from typing import Callable
-from fireboar.storage import load_trainings, load_sessions, upload_json, export_json, import_json, get_archived_trainings
+from fireboar.storage import load_trainings, load_sessions, export_json, import_json, get_archived_trainings
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session
 
@@ -32,14 +32,11 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
     page.controls.clear()
     page.bgcolor = "#222222"
 
-    async def upload_json_file(e):
-        await upload_json(e, page)
-        await home_ui(page, ui, show_archived=show_archived)
-
-    json_file_picker = ft.FilePicker(on_upload=upload_json_file)
+    json_file_picker = ft.FilePicker()
 
     async def import_json_file(e):
         await import_json(e, page, json_file_picker)
+        await home_ui(page, ui, show_archived=show_archived)
 
     async def export_json_file(e):
         await export_json(e, json_file_picker)
@@ -53,8 +50,8 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
                     ft.Text("Poczuj w sobie siłę dzika!", size=20, weight="bold", text_align="center"),
                     ft.Text(""),
                     ft.Button("➕ Dodaj trening", on_click=ui.add_training, expand=True, width=4000, height=50),
-                    ft.Button("↗ Importuj JSON", on_click=import_json_file, expand=True, width=4000, height=50),
-                    ft.Button("↘ Eksportuj JSON", on_click=export_json_file, expand=True, width=4000, height=50),
+                    ft.Button("↗ Wgraj backup", on_click=import_json_file, expand=True, width=4000, height=50),
+                    ft.Button("↘ Zrób backup", on_click=export_json_file, expand=True, width=4000, height=50),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),

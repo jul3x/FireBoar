@@ -1,5 +1,6 @@
-flet
-flet-cli
-flet-desktop-light
-flet_web
-flet-audio
+flet==0.80.6.dev7659
+flet-cli==0.80.6.dev7659
+flet-desktop-light==0.80.6.dev7659
+flet_web==0.80.6.dev7659
+flet-audio==0.80.6.dev7659
+dataclasses_json

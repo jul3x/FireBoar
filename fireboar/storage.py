@@ -69,45 +69,47 @@ async def dearchive_training_instance(id: str):
 async def get_archived_trainings() -> set[str]:
     return set(json.loads(await ft.SharedPreferences().get(STORAGE_ARCHIVED_TRAININGS) or '[]'))
 
-async def upload_json(e, page):
-    if e.progress != 1.0:
-        return
-
-    file_path = os.path.join("uploads", "trainings.json")
-
-    with open(file_path, "r") as f:
-        data = json.load(f)
-
-    trainings = [Training.from_json(t) for t in data["trainings"]]
-    sessions = [Session.from_json(s) for s in data["sessions"]]
-
-    await save_trainings(trainings)
-    await save_sessions(sessions)
-    await show_dialog(
-        page,
-        "Dane zaimportowane",
-        "Poprzednie dane zostały wyczyszczone!",
-        "Ok",
-    )
-
-
 async def import_json(e, page, json_file_picker):
     files = await json_file_picker.pick_files(
-        allow_multiple=False
+        allow_multiple=False,
+        with_data=True
     )
     if not files:
         return
 
     file = files[0]
     filename = "trainings.json"
-    upload_url = page.get_upload_url(filename, expires=60)
-    await json_file_picker.upload(
-        files=[
-            ft.FilePickerUploadFile(
-                name=file.name,
-                upload_url=upload_url,
-            )
-        ]
+    if not file.bytes:
+        await show_dialog(
+            page,
+            "Coś nie pykło",
+            "Wrzuciłeś mi pusty plik?",
+            "Oczy widzą, usta milczą",
+        )
+        return
+
+    try:
+        file_bytes = file.bytes.decode('utf-8')
+        data = json.loads(file_bytes)
+        trainings = [Training.from_json(t) for t in data["trainings"]]
+        sessions = [Session.from_json(s) for s in data["sessions"]]
+        await save_trainings(trainings)
+        await save_sessions(sessions)
+    except Exception as e:
+        print(e)
+        await show_dialog(
+            page,
+            "Taki cwany?",
+            "Wrzuć mi coś normalnego, to było zepsute.",
+            "Ok",
+        )
+        return
+
+    await show_dialog(
+        page,
+        "Dane zaimportowane",
+        "Poprzednie dane zostały wyczyszczone!",
+        "Ok",
     )
 
 async def export_json(e, json_file_picker):

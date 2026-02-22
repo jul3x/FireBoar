@@ -8,8 +8,8 @@ authors = [
     { name = "Julian Prolejko", email = "self@j3x.dev" }
 ]
 dependencies = [
-    "flet>=0.80.5",
-    "flet-audio>=0.80.5",
+    "flet>=0.80.6.dev7659",
+    "flet-audio>=0.80.6.dev7659",
     "dataclasses-json",
 ]
 
@@ -21,7 +21,7 @@ dev = [
 org = "J3X.dev"
 product = "FireBoar"
 company = "j3x"
-copyright = "Copyright (C) 2023-2026 by J3X"
+copyright = "Copyright (C) 2026 by J3X"
 
 [tool.flet.app.boot_screen]
 show = true
