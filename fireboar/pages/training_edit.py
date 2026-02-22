@@ -12,18 +12,17 @@ def string_to_hex_color(s: str) -> str:
     char_code = ord(first_char)
 
     # Map A-Z to 0-360 degrees hue
-    hue = ((char_code - 65) % 9) * (360 / 5)
+    hue = ((char_code - 65) % 26) * (360 / 7)
 
     # Hash the rest of the string for small tweaks
     hash_val = 0
     for c in s[1:]:
         hash_val = (hash_val * 31 + ord(c)) % 1000
 
-    hue_offset = (hash_val % 30) - 15  # -15 to +15 degrees
     sat = 70 + (hash_val % 20)          # 70-89%
     light = 50 + (hash_val % 10)        # 50-59%
 
-    final_hue = (hue + hue_offset + 360) % 360
+    final_hue = (hue + 360) % 360
 
     # Convert HSL to RGB
     r, g, b = hsl_to_rgb(final_hue, sat, light)
@@ -65,7 +64,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
     async def add_exercise(e):
         training.add_exercise()
         ex_id = training.exercises[-1].id
-        ex_cards[ex_id] = create_card(training.exercises[-1])
+        ex_cards[ex_id] = create_card(training.exercises[-1], new=True)
         cards_container.controls.append(ex_cards[ex_id])
         page.update()
 
@@ -103,7 +102,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         await show_dialog(page, "Ćwiczenia ogarnięte", "Teraz tylko ładować.", "Ok")
         await home_function()
 
-    def create_card(ex: Exercise):
+    def create_card(ex: Exercise, new: bool = False):
         header = ft.Text(ex.name or 'Kliknij by rozwinąć')
 
         interval_fields = [
@@ -112,6 +111,9 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                 expand=True,
                 value=str(ex.interval_config.intervals),
                 visible=ex.type == ExerciseType.INTERVAL,
+                border_color="#555555",
+                color="#ffffff",
+                bgcolor="#111111",
                 on_change=lambda e, ex=ex: ex.interval_config.set_intervals(e.control.value),
             ),
             ft.TextField(
@@ -119,6 +121,9 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                 expand=True,
                 value=str(ex.interval_config.working_time),
                 visible=ex.type == ExerciseType.INTERVAL,
+                border_color="#555555",
+                color="#ffffff",
+                bgcolor="#111111",
                 on_change=lambda e, ex=ex: ex.interval_config.set_working_time(e.control.value),
             ),
             ft.TextField(
@@ -126,6 +131,9 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                 expand=True,
                 value=str(ex.interval_config.rest_time),
                 visible=ex.type == ExerciseType.INTERVAL,
+                border_color="#555555",
+                color="#ffffff",
+                bgcolor="#111111",
                 on_change=lambda e, ex=ex: ex.interval_config.set_rest_time(e.control.value),
             ),
         ]
@@ -162,42 +170,60 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                                 label="Nazwa",
                                 expand=True,
                                 value=ex.name,
+                                border_color="#555555",
+                                color="#ffffff",
+                                bgcolor="#111111",
                                 on_change=lambda e, ex=ex, header=header: ex.set_name(e.control.value, header),
                             ),
                             ft.TextField(
                                 label="Serie",
                                 expand=True,
                                 value=str(ex.sets),
+                                border_color="#555555",
+                                color="#ffffff",
+                                bgcolor="#111111",
                                 on_change=lambda e, ex=ex: ex.set_sets(e.control.value),
                             ),
                             ft.TextField(
                                 label="Propozycja obciążenia",
                                 expand=True,
                                 value=ex.suggested_weight,
+                                border_color="#555555",
+                                color="#ffffff",
+                                bgcolor="#111111",
                                 on_change=lambda e, ex=ex: ex.set_weight(e.control.value),
                             ),
                             ft.TextField(
                                 label="Propozycja powtórzeń",
                                 expand=True,
                                 value=ex.suggested_reps,
+                                border_color="#555555",
+                                color="#ffffff",
+                                bgcolor="#111111",
                                 on_change=lambda e, ex=ex: ex.set_reps(e.control.value),
                             ),
                             ft.TextField(
                                 label="Rest pomiędzy seriami (sek)",
                                 expand=True,
                                 value=str(ex.rest_seconds),
+                                border_color="#555555",
+                                color="#ffffff",
+                                bgcolor="#111111",
                                 on_change=lambda e, ex=ex: ex.set_rest(e.control.value),
                             ),
                             ft.TextField(
                                 label="Identyfikator superserii (dodaj taki sam dla ćwiczeń naprzemiennych)",
                                 expand=True,
                                 value=str(ex.superset_id),
+                                border_color="#555555",
+                                color="#ffffff",
+                                bgcolor="#111111",
                                 on_change=lambda e, ex=ex: set_superset(ex, e.control.value),
                             ),
                             *interval_fields,
                             ft.Text(""),
                         ]),
-                        expanded=False, # Controls initial state
+                        expanded=new,
                         expanded_alignment=ft.Alignment.CENTER_LEFT,
                     )
                 )
@@ -205,9 +231,10 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
 
 
     page.add(
-        ft.Text("Edycja treningu:", size=22),
-        ft.Text(f"{training.name}", size=22),
-        ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise),
+        ft.Text("Edycja treningu:", size=24, margin=10, text_align="center", width=4000),
+        ft.Text(f"{training.name}", size=24, text_align="center", width=4000),
+        ft.Text(""),
+        ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise, width=4000),
     )
 
     ex_headers = {}
@@ -226,7 +253,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
 
 
 async def training_add_ui(page: ft.Page, home_function):
-    name = ft.TextField(label="Nazwa treningu")
+    name = ft.TextField(label="Nazwa treningu", border_color="#888888", color="#ffffff", bgcolor="#444444", expand=True)
 
     async def save(e):
         trainings = await load_trainings()
@@ -242,7 +269,7 @@ async def training_add_ui(page: ft.Page, home_function):
 
     page.controls.clear()
     page.add(
-        ft.Text("Nowy trening", size=24),
+        ft.Text("Nowy trening", size=24, width=4000, text_align="center", margin=10),
         name,
         ft.Row([
             ft.Button("Zapisz", on_click=save),

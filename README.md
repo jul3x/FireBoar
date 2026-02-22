@@ -1,8 +1,35 @@
-# Fireboar app
+# 🐗 FireBoar Training App
+
+**FireBoar** is a workout tracker / training app built with **Python + Flet** that lets you design structured trainings, run them in real time with timers, and automatically track your personal bests. Implemented with PWA (Progressive Web App) technology in mind to run offline on your mobile (both iOS and Android).
+
+🌐 **Live demo:** https://fireboar.j3x.dev
+
+---
+
+## ✨ Features
+
+- 🏋️ Create and edit custom training plans
+- 🔁 Supersets support
+- ⏱ Built-in rest timers & interval workouts
+- 📊 Automatic Personal Best detection
+- 🧠 Last session performance preview during training
+- 🗂 Training session history
+- ⚡ Async, smooth UI powered by Flet
+- 🎯 Suggested weight & reps per exercise
+- 🟢 Mobile-friendly layout
+
+---
+
+
+## ⚙️ Installation
+
+```bash
+git clone https://github.com/jul3x/FireBoar.git
+cd fireboar
+pip install -r requirements-dev.txt
+```
 
 ## Run the app
-
-### uv
 
 Run as a desktop app:
 
@@ -16,46 +43,10 @@ Run as a web app:
 flet run --web
 ```
 
-For more details on running the app, refer to the [Getting Started Guide](https://docs.flet.dev/).
-
 ## Build the app
 
-### Android
+### PWA
 
 ```
-flet build apk -v
+./build.sh
 ```
-
-For more details on building and signing `.apk` or `.aab`, refer to the [Android Packaging Guide](https://docs.flet.dev/publish/android/).
-
-### iOS
-
-```
-flet build ipa -v
-```
-
-For more details on building and signing `.ipa`, refer to the [iOS Packaging Guide](https://docs.flet.dev/publish/ios/).
-
-### macOS
-
-```
-flet build macos -v
-```
-
-For more details on building macOS package, refer to the [macOS Packaging Guide](https://docs.flet.dev/publish/macos/).
-
-### Linux
-
-```
-flet build linux -v
-```
-
-For more details on building Linux package, refer to the [Linux Packaging Guide](https://docs.flet.dev/publish/linux/).
-
-### Windows
-
-```
-flet build windows -v
-```
-
-For more details on building Windows package, refer to the [Windows Packaging Guide](https://docs.flet.dev/publish/windows/).

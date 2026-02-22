@@ -10,7 +10,7 @@ logo = ft.Image(
     height=300,
 )
 
-async def home_ui(page: ft.Page, add_training, edit_training, delete_training, start_training, show_sessions):
+async def home_ui(page: ft.Page, add_training, edit_training, delete_training, start_training, show_sessions, show_pb):
     trainings = await load_trainings()
     sessions = await load_sessions()
     page.controls.clear()
@@ -36,9 +36,9 @@ async def home_ui(page: ft.Page, add_training, edit_training, delete_training, s
                     logo,
                     ft.Text("Poczuj w sobie siłę dzika!", size=20, weight="bold", text_align="center"),
                     ft.Text(""),
-                    ft.Button("➕ Dodaj trening", on_click=add_training, expand=True, width=2000, height=50),
-                    ft.Button("↗ Importuj JSON", on_click=import_json_file, expand=True, width=2000, height=50),
-                    ft.Button("↘ Eksportuj JSON", on_click=export_json_file, expand=True, width=2000, height=50)
+                    ft.Button("➕ Dodaj trening", on_click=add_training, expand=True, width=4000, height=50),
+                    ft.Button("↗ Importuj JSON", on_click=import_json_file, expand=True, width=4000, height=50),
+                    ft.Button("↘ Eksportuj JSON", on_click=export_json_file, expand=True, width=4000, height=50)
 
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -53,13 +53,14 @@ async def home_ui(page: ft.Page, add_training, edit_training, delete_training, s
                 ft.Container(
                     padding=10,
                     content=ft.Column([
-                        ft.Row([ft.Text(t.name, size=18, weight="bold"),
+                        ft.Row([ft.Text(t.name, size=18, weight="bold", margin=10),
                                 ft.Text(f"ćwiczeń: {len(t.exercises)}, było łojone: {len(sessions_for_t)} razy", size=14),
                         ]),
                         ft.Column([
                             ft.Row([
                                 ft.TextButton("▶ Start", on_click=start_training, data=t.id),
-                                ft.TextButton("🚀 Pokaż sesyjki", on_click=show_sessions, data=t),
+                                ft.TextButton("🚀 Sesyjki", on_click=show_sessions, data=t),
+                                ft.TextButton("🥇 Maxy", on_click=show_pb, data=t),
                             ]),
                             ft.Row([
                                 ft.TextButton("✏ Edytuj", on_click=edit_training, data=t.id),

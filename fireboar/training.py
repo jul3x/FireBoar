@@ -3,6 +3,7 @@ import re
 import uuid
 import json
 import datetime
+from copy import deepcopy
 from enum import StrEnum
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
@@ -11,6 +12,7 @@ from dataclasses_json import dataclass_json
 class ExerciseType(StrEnum):
     NORMAL = "NORMAL"
     INTERVAL = "INTERVAL"
+
 
 @dataclass_json
 @dataclass(slots=True)
@@ -26,6 +28,9 @@ class IntervalConfig:
         except ValueError:
             pass
 
+        if value < 1:
+            value = 1
+
         self.intervals = value
 
     def set_working_time(self, v: str):
@@ -35,6 +40,9 @@ class IntervalConfig:
         except ValueError:
             pass
 
+        if value < 1:
+            value = 1
+
         self.working_time = value
 
     def set_rest_time(self, v: str):
@@ -43,6 +51,9 @@ class IntervalConfig:
             value = int(v.strip() or 15)
         except ValueError:
             pass
+
+        if value < 1:
+            value = 1
 
         self.rest_time = value
 
@@ -67,9 +78,12 @@ class Exercise:
     def set_sets(self, sets: str):
         value = 1
         try:
-            value = int(set.strip() or 1)
+            value = int(sets.strip() or 1)
         except ValueError:
             pass
+
+        if value < 1:
+            value = 1
 
         self.sets = value
 
@@ -86,16 +100,26 @@ class Exercise:
         except ValueError:
             pass
 
+        if value < 1:
+            value = 1
+
         self.rest_seconds = value
 
     def set_superset(self, id: str):
         self.superset_id = id.strip()
 
 
-class TrainingAction(StrEnum):
+class TrainingActionType(StrEnum):
     REST = "REST"
     SUMMARY = "SUMMARY"
     INTERVAL_WORK = "INTERVAL_WORK"
+    INTERVAL_REST = "INTERVAL_REST"
+
+
+@dataclass
+class TrainingAction:
+    action: TrainingActionType
+    string: str = ""
 
 
 @dataclass_json
@@ -119,7 +143,7 @@ class SessionSet:
             return self.exercise.id or ""
         return self.id or ""
 
-    def get_header(self) -> list[str]:
+    def get_header(self, action: TrainingAction | None) -> list[str]:
         if not self.exercise:
             return ""
 
@@ -128,16 +152,33 @@ class SessionSet:
         else:
             superset_string = f"Superseria {self.exercise.superset_id}: "
 
-        return [
-            f"{superset_string}{self.get_name()} – seria {self.set_index}/{self.exercise.sets}",
-            f"📔 Proponowane {self.exercise.suggested_weight} x {self.exercise.suggested_reps}",
+        data = [
+            f"{superset_string}{self.get_name()} – seria {self.set_index}/{self.exercise.sets}"
         ]
+        if action and action.string:
+            data.append(action.string)
+        data.append(
+            f"📔 Proponowane {self.exercise.suggested_weight} x {self.exercise.suggested_reps}"
+        )
+        return data
 
     def get_last_info(self) -> str:
         return f"⌚ Ostatnio: {self.weight} x {self.reps} ({self.notes})"
 
     def get_action_list(self) -> list[TrainingAction]:
-        return [TrainingAction.SUMMARY, TrainingAction.REST]
+        assert self.exercise is not None
+
+        if self.exercise.type == ExerciseType.NORMAL:
+            return [TrainingAction(TrainingActionType.SUMMARY), TrainingAction(TrainingActionType.REST)]
+        elif self.exercise.type == ExerciseType.INTERVAL:
+            ret = []
+            interval = [TrainingAction(TrainingActionType.INTERVAL_REST), TrainingAction(TrainingActionType.INTERVAL_WORK)]
+            for sets in range(self.exercise.interval_config.intervals):
+                additional_string = f"Interwał {sets + 1} / {self.exercise.interval_config.intervals}"
+                interval[0].string = interval[1].string = additional_string
+                ret.extend(deepcopy(interval))
+            ret = ret[1:]  # Remove first rest
+            return ret + [TrainingAction(TrainingActionType.SUMMARY), TrainingAction(TrainingActionType.REST)]
 
 
 @dataclass_json
@@ -190,7 +231,7 @@ class Training:
                             continue
                         sets.append(
                             SessionSet(
-                                exercise=ex,
+                                exercise=super_ex,
                                 set_index=i + 1
                             )
                         )
@@ -238,13 +279,15 @@ class PersonalBest:
     exercise_id: str
     max_weight: int | str
     max_reps: int | str
-    session_date: str
+    session: Session
+    session_set: SessionSet
 
     @staticmethod
     def get_pb_for_training(sessions: list[Session], exercise_id: str) -> PersonalBest | None:
-        max_weight = 0.0
+        max_weight = -10.0
         max_reps = 0
-        session_date = None
+        session = None
+        session_set = None
         if not sessions:
             return None
 
@@ -257,23 +300,27 @@ class PersonalBest:
                 if w > max_weight:
                     max_weight = w
                     max_reps = r
-                    session_date = s.get_date()
+                    session = s
+                    session_set = set
                 if w == max_weight and r > max_reps:
                     max_reps = r
                     session_date = s.get_date()
+                    session = s
+                    session_set = set
 
-        if not session_date:
+        if not session or not session_set:
             return None
 
         return PersonalBest(
             exercise_id=exercise_id,
             max_weight=max_weight,
             max_reps=max_reps,
-            session_date=session_date,
+            session=session,
+            session_set=session_set,
         )
 
     def get_str(self) -> str:
-        return f"🥇 Twój max: {self.max_weight} kg x {self.max_reps} ({self.session_date})"
+        return f"{self.max_weight} kg x {self.max_reps} ({self.session.get_date()})"
 
 
 def normalize_string(value: str | int | float) -> float:
@@ -287,16 +334,5 @@ def normalize_string(value: str | int | float) -> float:
         return float(cleaned)
     except ValueError:
         return 0.0
-
-
-def get_session_pb_emoji(sessions: list, session_idx: int) -> str:
-    # TODO - get this
-    current_pb = "🥇"    
-    historical_pb = "🥈"
-
-    #for s in sessions:
-    #    if s["sets"]
-
-    return ""
 
 
