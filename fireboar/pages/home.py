@@ -1,5 +1,7 @@
 import flet as ft
-from fireboar.storage import load_trainings, load_sessions, upload_json, export_json, import_json
+from dataclasses import dataclass
+from typing import Callable
+from fireboar.storage import load_trainings, load_sessions, upload_json, export_json, import_json, get_archived_trainings
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session
 
@@ -10,15 +12,29 @@ logo = ft.Image(
     height=300,
 )
 
-async def home_ui(page: ft.Page, add_training, edit_training, delete_training, start_training, show_sessions, show_pb):
+
+@dataclass
+class UI:
+    add_training: Callable
+    edit_training: Callable
+    delete_training: Callable
+    start_training: Callable
+    show_sessions: Callable
+    show_pb: Callable
+    archive_training: Callable
+
+
+
+async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
     trainings = await load_trainings()
+    archived_trainings = await get_archived_trainings()
     sessions = await load_sessions()
     page.controls.clear()
     page.bgcolor = "#222222"
 
     async def upload_json_file(e):
         await upload_json(e, page)
-        await home_ui(page, add_training, edit_training, delete_training, start_training, show_sessions)
+        await home_ui(page, ui, show_archived=show_archived)
 
     json_file_picker = ft.FilePicker(on_upload=upload_json_file)
 
@@ -36,10 +52,9 @@ async def home_ui(page: ft.Page, add_training, edit_training, delete_training, s
                     logo,
                     ft.Text("Poczuj w sobie siłę dzika!", size=20, weight="bold", text_align="center"),
                     ft.Text(""),
-                    ft.Button("➕ Dodaj trening", on_click=add_training, expand=True, width=4000, height=50),
+                    ft.Button("➕ Dodaj trening", on_click=ui.add_training, expand=True, width=4000, height=50),
                     ft.Button("↗ Importuj JSON", on_click=import_json_file, expand=True, width=4000, height=50),
-                    ft.Button("↘ Eksportuj JSON", on_click=export_json_file, expand=True, width=4000, height=50)
-
+                    ft.Button("↘ Eksportuj JSON", on_click=export_json_file, expand=True, width=4000, height=50),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),
@@ -47,6 +62,12 @@ async def home_ui(page: ft.Page, add_training, edit_training, delete_training, s
     )
 
     for t in trainings:
+        if not show_archived and t.id in archived_trainings:
+            continue
+
+        if show_archived and t.id not in archived_trainings:
+            continue
+
         sessions_for_t = t.get_sessions(sessions)
         page.add(
             ft.Card(
@@ -58,18 +79,38 @@ async def home_ui(page: ft.Page, add_training, edit_training, delete_training, s
                         ]),
                         ft.Column([
                             ft.Row([
-                                ft.TextButton("▶ Start", on_click=start_training, data=t.id),
-                                ft.TextButton("🚀 Sesyjki", on_click=show_sessions, data=t),
-                                ft.TextButton("🥇 Maxy", on_click=show_pb, data=t),
+                                ft.TextButton("▶ Start", on_click=ui.start_training, data=t.id),
+                                ft.TextButton("🚀 Sesyjki", on_click=ui.show_sessions, data=t),
+                                ft.TextButton("🥇 Maxy", on_click=ui.show_pb, data=t),
                             ]),
                             ft.Row([
-                                ft.TextButton("✏ Edytuj", on_click=edit_training, data=t.id),
-                                ft.TextButton("🗑️ Usuń", on_click=delete_training, data=t.id),
+                                ft.TextButton("✏ Edytuj", on_click=ui.edit_training, data=t.id),
+                                ft.TextButton("🗑️ Usuń", on_click=ui.delete_training, data=t.id),
+                                ft.TextButton(
+                                    f"📂 {'Przywróć' if show_archived else 'Archiwizuj'}",
+                                    on_click=ui.archive_training, data={
+                                        "id": t.id,
+                                        "dearchive": show_archived,
+                                    }
+                                ),
                             ]),
                         ])
                     ]),
                 )
             )
         )
+
+    async def show_trainings(e):
+        if show_archived:
+            await home_ui(page, ui, False)
+        else:
+            await home_ui(page, ui, True)
+
+    page.add(
+        ft.Button(
+            "Pokaż aktualne" if show_archived else "Pokaż zarchiwizowane",
+            on_click=show_trainings, expand=True, width=4000, height=50
+        ),
+    )
 
     page.update()

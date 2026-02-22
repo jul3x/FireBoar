@@ -7,14 +7,15 @@ from fireboar.storage import (
     load_sessions,
     get_training,
     delete_training_from_list,
+    archive_training_instance,
+    dearchive_training_instance,
 )
 from fireboar.utils import show_dialog
 from fireboar.pages.training_edit import training_edit_ui, training_add_ui
-from fireboar.pages.home import home_ui
+from fireboar.pages.home import UI, home_ui
 from fireboar.pages.sessions import sessions_show_ui, pb_show_ui
 from fireboar.pages.start import start_entry_ui
 
-# TODO: Sounds of beeping for sessions
 # TODO: Import from XLSX
 # TODO: Export to XLSX
 
@@ -23,9 +24,6 @@ async def main(page: ft.Page):
     page.scroll = "auto"
 
     os.makedirs("uploads", exist_ok=True)
-
-    async def show_home():
-        await home_ui(page, show_add_training, edit_training, delete_training, start_training, show_sessions, show_pb)
 
     async def show_sessions(e):
         sessions = await load_sessions()
@@ -54,6 +52,28 @@ async def main(page: ft.Page):
         training = await get_training(event.control.data)
         sessions = await load_sessions()
         await start_entry_ui(training, sessions, page, home_function=show_home)
+
+    async def archive_training(event):
+        if event.control.data["dearchive"]:
+            await dearchive_training_instance(event.control.data["id"])
+            await show_dialog(page, "Trening przywrócony", "Wracasz do tatusia?", "Yes daddy")
+        else:
+            await archive_training_instance(event.control.data["id"])
+            await show_dialog(page, "Trening zarchiwizowany", "Ładujesz coś nowego byku?", "Keep grinding")
+        await show_home()
+
+    ui = UI(
+        add_training=show_add_training,
+        edit_training=edit_training,
+        delete_training=delete_training,
+        start_training=start_training,
+        show_sessions=show_sessions,
+        show_pb=show_pb,
+        archive_training=archive_training,
+    )
+
+    async def show_home():
+        await home_ui(page, ui, show_archived=False)
 
     await show_home()
 

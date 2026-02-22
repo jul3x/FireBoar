@@ -6,6 +6,7 @@ from fireboar.training import Training, Session
 from fireboar.utils import show_dialog
 
 STORAGE_TRAININGS = "trainings"
+STORAGE_ARCHIVED_TRAININGS = "archived-trainings"
 STORAGE_TRAINING = "training"
 STORAGE_SESSIONS = "sessions"
 STORAGE_SESSION = "session"
@@ -54,6 +55,19 @@ async def delete_session_from_list(id: str):
     # TODO - more efficiently
     sessions = await load_sessions()
     await save_sessions([s for s in sessions if s.id != id])
+
+async def archive_training_instance(id: str):
+    names = set(json.loads(await ft.SharedPreferences().get(STORAGE_ARCHIVED_TRAININGS) or '[]'))
+    names.add(id)
+    await ft.SharedPreferences().set(STORAGE_ARCHIVED_TRAININGS, json.dumps(list(names)))
+
+async def dearchive_training_instance(id: str):
+    names = set(json.loads(await ft.SharedPreferences().get(STORAGE_ARCHIVED_TRAININGS) or '[]'))
+    names.remove(id)
+    await ft.SharedPreferences().set(STORAGE_ARCHIVED_TRAININGS, json.dumps(list(names)))
+
+async def get_archived_trainings() -> set[str]:
+    return set(json.loads(await ft.SharedPreferences().get(STORAGE_ARCHIVED_TRAININGS) or '[]'))
 
 async def upload_json(e, page):
     if e.progress != 1.0:
