@@ -48,7 +48,7 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
         await home_ui(page, ui, show_archived=show_archived)
 
     async def export_json_file(e):
-        await export_json(e, json_file_picker)
+        await export_json(e, file_picker)
 
     kate_button = ft.Button("↗ Wgraj arkusz od Kate", on_click=import_kate_file, expand=True, width=4000, height=50)
     page.add(
@@ -82,9 +82,8 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
                 ft.Container(
                     padding=10,
                     content=ft.Column([
-                        ft.Row([ft.Text(t.name, size=18, weight="bold", margin=10),
-                                ft.Text(f"ćwiczeń: {len(t.exercises)}, było łojone: {len(sessions_for_t)} razy", size=14),
-                        ]),
+                          ft.Text("Trening: " + t.name, size=18, weight="bold", margin=10),
+                          ft.Text(f"ćwiczeń: {len(t.exercises)}, było łojone: {len(sessions_for_t)} razy", size=14, margin=ft.Margin(left=10, right=10)),
                         ft.Column([
                             ft.Row([
                                 ft.TextButton("▶ Start", on_click=ui.start_training, data=t.id),
