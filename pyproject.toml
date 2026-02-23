@@ -1,6 +1,6 @@
 [project]
 name = "FireBoar"
-version = "0.1.0"
+version = "0.2.0"
 description = "Poczuj w sobie siłę dzika!"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -8,10 +8,14 @@ authors = [
     { name = "Julian Prolejko", email = "self@j3x.dev" }
 ]
 dependencies = [
-    "flet>=0.80.6.dev7659",
-    "flet-audio>=0.80.6.dev7659",
+    "flet==0.80.6.dev7659",
+    "flet-audio==0.80.6.dev7659",
     "dataclasses-json",
+    "openpyxl",
 ]
+
+[tool.flet.flutter.pubspec.dependency_overrides]
+flet = { git = { url = "https://github.com/flet-dev/flet.git", ref = "main", path = "packages/flet" } }
 
 [dependency-groups]
 dev = [

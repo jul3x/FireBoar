@@ -8,8 +8,8 @@ def string_to_hex_color(s: str) -> str:
     if not s:
         return "#000000"  # fallback for empty string
 
-    first_char = s[0].upper()
-    char_code = ord(first_char)
+    first_char = s[0]
+    char_code = ord(first_char) + len(s)
 
     # Map A-Z to 0-360 degrees hue
     hue = ((char_code - 65) % 26) * (360 / 7)
@@ -234,7 +234,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         ft.Text("Edycja treningu:", size=24, margin=10, text_align="center", width=4000),
         ft.Text(f"{training.name}", size=24, text_align="center", width=4000),
         ft.Text(""),
-        ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise, width=4000),
+        ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise, width=4000, height=50),
     )
 
     ex_headers = {}

@@ -16,7 +16,6 @@ from fireboar.pages.home import UI, home_ui
 from fireboar.pages.sessions import sessions_show_ui, pb_show_ui
 from fireboar.pages.start import start_entry_ui
 
-# TODO: Import from XLSX
 # TODO: Export to XLSX
 
 async def main(page: ft.Page):
@@ -69,17 +68,18 @@ async def main(page: ft.Page):
             await show_dialog(page, "Trening zarchiwizowany", "Ładujesz coś nowego byku?", "Keep grinding")
         await show_home()
 
-    ui = UI(
-        add_training=show_add_training,
-        edit_training=edit_training,
-        delete_training=delete_training,
-        start_training=start_training,
-        show_sessions=show_sessions,
-        show_pb=show_pb,
-        archive_training=archive_training,
-    )
-
     async def show_home():
+        ui = UI(
+            show_home=show_home,
+            add_training=show_add_training,
+            edit_training=edit_training,
+            delete_training=delete_training,
+            start_training=start_training,
+            show_sessions=show_sessions,
+            show_pb=show_pb,
+            archive_training=archive_training,
+        )
+
         await home_ui(page, ui, show_archived=False)
 
     await show_home()

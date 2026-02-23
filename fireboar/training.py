@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 import uuid
 import json
 import datetime
@@ -7,19 +6,7 @@ from copy import deepcopy
 from enum import StrEnum
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json
-
-
-def normalize_string(value: str | int | float) -> float:
-    if isinstance(value, int) or isinstance(value, float):
-        return float(value)
-
-    cleaned = re.sub(r"[^0-9.,]", "", value)
-    cleaned = cleaned.replace(",", ".")
-
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
+from fireboar.utils import normalize_string
 
 
 class ExerciseType(StrEnum):

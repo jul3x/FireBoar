@@ -1,4 +1,5 @@
 import flet as ft
+import re
 from typing import Callable
 import asyncio
 
@@ -26,3 +27,17 @@ async def show_dialog(page: ft.Page, title: str, content: str, action: str, acti
         open=True,
     ))
     await vibrate()
+
+
+def normalize_string(value: str | int | float) -> float:
+    if isinstance(value, int) or isinstance(value, float):
+        return float(value)
+
+    cleaned = re.sub(r"[^0-9.,]", "", value)
+    cleaned = cleaned.replace(",", ".")
+
+    try:
+        return float(cleaned)
+    except ValueError:
+        return 0.0
+
