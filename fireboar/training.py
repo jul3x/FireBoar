@@ -120,17 +120,18 @@ class SessionSet:
         if not self.exercise.superset_id.strip():
             superset_string = ""
         else:
-            superset_string = f"Superseria {self.exercise.superset_id}: "
+            superset_string = f"{self.exercise.superset_id}: "
 
         data = [
             f"{superset_string}{self.get_name()} – seria {self.set_index}/{self.exercise.sets}"
         ]
         if action and action.string:
             data.append(action.string)
-        data.append(
-            f"📔 Proponowane {self.exercise.suggested_weight} x {self.exercise.suggested_reps}"
-        )
         return data
+
+    def get_suggestions(self) -> str:
+        text = f"📔 Proponowane {self.exercise.suggested_weight or 'pusto'} x {self.exercise.suggested_reps or '1'}"
+        return text
 
     def get_last_info(self) -> str:
         return f"⌚ Ostatnio: {self.weight} x {self.reps} ({self.notes})"

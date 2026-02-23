@@ -6,8 +6,7 @@ from fireboar.utils import show_dialog
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
 
 
-def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None, sessions: list[Session], last_session: Session | None, set_index: int):
-    pb = PersonalBest.get_pb_for_training(sessions, ex.exercise.id)
+def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None, is_next: bool = False):
     card = ft.Card(
        ft.Container(
            padding=20,
@@ -17,20 +16,37 @@ def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None,
        ),
        margin=ft.Margin(bottom=15, top=15),
     )
-    for header in ex.get_header(action):
-        card.content.content.controls.append(ft.Text(header, size=22, width=4000, text_align="center"))
-        card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
 
-    if pb:
-        card.content.content.controls.append(ft.Text("🥇 Twój max: " + pb.get_str(), size=22, width=4000, text_align="center"))
-        card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
-    if last_session and set_index < len(last_session.sets):
-        last_set = last_session.sets[set_index]
-        card.content.content.controls.append(ft.Text(last_set.get_last_info(), size=22, width=4000, text_align="center"))
+    if is_next:
+        card.content.content.controls.append(ft.Text("Następne:", size=22, width=4000, text_align="center"))
+    for header in ex.get_header(action):
+        card.content.content.controls.append(ft.Text(header, weight="bold", size=22, width=4000, text_align="center"))
         card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
 
     # Last is always divider. remove it.
     card.content.content.controls = card.content.content.controls[:-1]
+    page.add(card)
+
+
+def add_set_metadata(page: ft.Page, ex: SessionSet, sessions: list[Session], last_session: Session | None):
+    card = ft.Card(
+       ft.Container(
+           padding=20,
+           margin=5,
+           content=ft.Column([
+           ]),
+       ),
+       margin=ft.Margin(bottom=15, top=15),
+    )
+    card.content.content.controls.append(ft.Text(ex.get_suggestions(), size=22, width=4000, text_align="center"))
+    pb = PersonalBest.get_pb_for_training(sessions, ex.exercise.id)
+    if pb:
+        card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
+        card.content.content.controls.append(ft.Text("🥇 Twój max: " + pb.get_str(), size=22, width=4000, text_align="center"))
+    if last_session and ex.set_index < len(last_session.sets):
+        card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
+        last_set = last_session.sets[ex.set_index]
+        card.content.content.controls.append(ft.Text(last_set.get_last_info(), size=22, width=4000, text_align="center"))
 
     page.add(card)
 
@@ -58,7 +74,8 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
         ft.Text("Lecimy z tematem.", size=26, width=4000, text_align="center", weight=ft.FontWeight.BOLD),
         ft.Text("Jeśliś rozgrzany to dawaj.", size=26, width=4000, text_align="center", weight=ft.FontWeight.BOLD),
     )
-    add_set_header(page, sets[0], None, sessions, last_session, 0)
+    add_set_header(page, ex=sets[0], action=None)
+    add_set_metadata(page, ex=sets[0], sessions=last_sessions, last_session=last_session)
     page.add(
         ft.Button("Jedziesz dziku!", on_click=start_training, width=4000, height=50),
         ft.Button("Wróć", on_click=home_function, width=4000, height=50),
@@ -68,7 +85,7 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
 
 async def start_ui(training: Training, sessions: list[Session], last_session: Session | None, page: ft.Page, home_function):
     page.controls.clear()
-    beep=fta.Audio("beep.mp3")
+    beep=fta.Audio("beep.mp3", release_mode=fta.ReleaseMode.STOP)
 
     timer_text = ft.Text(size=40, weight="bold", width=4000, text_align="center")
     weight = ft.TextField(label="Obciążenie", border_color="#555555", color="#ffffff", bgcolor="#222222", expand=True)
@@ -103,13 +120,20 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             exited_flag.set()
             saved_flag.set()
 
+    async def play_beep():
+        try:
+            await asyncio.wait_for(beep.play(), timeout=1)
+        except asyncio.TimeoutError:
+            print("Timeouted waiting for beep to play")
+
     async def start_rest(action=None, is_start=False, next_set=None):
         page.controls.clear()
         page.bgcolor = "#004422"
 
         ex = sets[set_index]
         page.add(timer_text)
-        add_set_header(page, next_set or ex, action, sessions, last_session, set_index)
+        add_set_header(page, ex=next_set or ex, action=action, is_next=next_set is not None)
+        add_set_metadata(page, ex=next_set or ex, sessions=sessions, last_session=last_session)
 
         timer_seconds = ex.exercise.rest_seconds if not is_start else 10
         for i in range(timer_seconds, 0, -1):
@@ -118,7 +142,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             else:
                 timer_text.value = f"\nRest: \n⏱ {i}s\n"
             if i == 3:
-                await beep.play()
+                await play_beep()
             if i < 4:
                 timer_text.value += "Przygotuj się!\n"
             page.update()
@@ -126,7 +150,6 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         hf = ft.HapticFeedback()
         await hf.heavy_impact()
-        await beep.pause()
 
     async def start_rest_interval(action):
         page.controls.clear()
@@ -134,13 +157,14 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         ex = sets[set_index]
         page.add(timer_text)
-        add_set_header(page, ex, action, sessions, last_session, set_index)
+        add_set_header(page, ex=ex, action=action, is_next=False)
+        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
 
         timer_seconds = ex.exercise.interval_config.rest_time
         for i in range(timer_seconds, 0, -1):
             timer_text.value = f"\nRest interwałowy: \n⏱ {i}s\n"
             if i == 3:
-                await beep.play()
+                await play_beep()
             if i < 4:
                 timer_text.value += "Przygotuj się!\n"
             page.update()
@@ -148,7 +172,6 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         hf = ft.HapticFeedback()
         await hf.heavy_impact()
-        await beep.pause()
 
     async def start_working_interval(action):
         page.controls.clear()
@@ -156,13 +179,14 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         ex = sets[set_index]
         page.add(timer_text)
-        add_set_header(page, ex, action, sessions, last_session, set_index)
+        add_set_header(page, ex=ex, action=action, is_next=False)
+        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
 
         timer_seconds = ex.exercise.interval_config.working_time
         for i in range(timer_seconds, 0, -1):
             timer_text.value = f"\nŁaduj: ⏱ {i}s\n"
             if i == 3:
-                await beep.play()
+                await play_beep()
             if i < 4:
                 timer_text.value += "Już prawie...\n"
             page.update()
@@ -170,7 +194,6 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         hf = ft.HapticFeedback()
         await hf.heavy_impact()
-        await beep.pause()
 
     async def show_set_input(saved, exited, action):
         ex = sets[set_index]
@@ -178,9 +201,10 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         page.controls.clear()
         page.bgcolor = "#222222"
+        page.add(timer_text)
+        add_set_header(page, ex=ex, action=action, is_next=False)
 
         page.add(
-            timer_text,
             weight,
             reps,
             notes,
@@ -189,7 +213,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
                 ft.Button("Zakończ trening (bez ostatniej serii)", on_click=end_session, data=[saved, exited], width=4000, height=50),
             ]),
         )
-        add_set_header(page, ex, action, sessions, last_session, set_index)
+        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
         page.update()
 
     for set_index in range(len(sets)):
