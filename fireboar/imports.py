@@ -3,6 +3,7 @@ import json
 import re
 from datetime import datetime
 import asyncio
+import httpx
 from openpyxl import load_workbook
 from io import BytesIO
 from fireboar.training import Training, Exercise, Session
@@ -10,11 +11,7 @@ from fireboar.storage import save_trainings, save_sessions, load_trainings, load
 from fireboar.utils import show_dialog, normalize_string
 
 
-async def import_json(e, page, json_file_picker):
-    files = await json_file_picker.pick_files(
-        allow_multiple=False,
-        with_data=True
-    )
+async def import_json(page, files):
     if not files:
         return
 
@@ -53,7 +50,7 @@ async def import_json(e, page, json_file_picker):
     )
 
 
-async def export_json(e, json_file_picker):
+async def export_json(json_file_picker):
     trainings = [t.to_json() for t in await load_trainings()]
     sessions = [s.to_json() for s in await load_sessions()]
     await json_file_picker.save_file(
@@ -63,16 +60,62 @@ async def export_json(e, json_file_picker):
     )
 
 
-async def import_kate(e, page, file_picker, home_function):
-    files = await file_picker.pick_files(
-        allow_multiple=False,
-        with_data=True
+async def import_kate_entry(page, home_function):
+    page.controls.clear()
+    page.add(ft.Text("Wpisz URL do arkusza Google (tfu)", size=24, weight="bold", width=4000, text_align="center"))
+    page.add(ft.Text("Upewnij się, że masz dostęp do odczytu za pomocą linka.", size=16, width=4000, text_align="center"))
+    page.add(
+        url_field := ft.TextField(
+            label="URL",
+            expand=True,
+            border_color="#555555",
+            color="#ffffff",
+            bgcolor="#111111",
+        ),
     )
-    if not files:
-        return
 
-    file = files[0]
-    if not file.bytes:
+    exit_event = asyncio.Event()
+    async def import_xlsx(e):
+        button.content = "wczytuję..."
+        button.disabled = True
+        page.update()
+        url = url_field.value
+        try:
+            url = url.strip().split("/")
+            url = "/".join(url[:-1])
+            url += '/export?format=xlsx'
+            async with httpx.AsyncClient(follow_redirects=True) as client:
+                r = await client.get(url)
+                file_content = r.content
+
+            await import_kate(page, file_content, home_function)
+        except Exception as e:
+            await show_dialog(
+                page,
+                "Coś nie pykło",
+                "Czy to na pewno URL skopiowany prosto od wujka Google?",
+                "Ogar",
+            )
+            print(e)
+            pass
+
+        button.content = "Wczytaj arkusz"
+        button.disabled = False
+        page.update()
+        await exit_import(e)
+
+    async def exit_import(e):
+        exit_event.set()
+
+    page.add(button := ft.Button("Wczytaj arkusz", width=4000, height=50, on_click=import_xlsx))
+    page.add(ft.TextButton("Wróć", width=4000, height=50, on_click=exit_import))
+    page.update()
+    await exit_event.wait()
+
+
+
+async def import_kate(page, file_content, home_function):
+    if not file_content:
         await show_dialog(
             page,
             "Coś nie pykło",
@@ -82,7 +125,7 @@ async def import_kate(e, page, file_picker, home_function):
         return
 
     try:
-        file_memory = BytesIO(file.bytes)
+        file_memory = BytesIO(file_content)
         wb = load_workbook(file_memory)
     except Exception as e:
         print(e)

@@ -12,6 +12,7 @@ dependencies = [
     "flet-audio==0.80.6.dev7659",
     "dataclasses-json",
     "openpyxl",
+    "httpx",
 ]
 
 [tool.flet.flutter.pubspec.dependency_overrides]

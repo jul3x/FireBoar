@@ -2,7 +2,7 @@ import flet as ft
 from dataclasses import dataclass
 from typing import Callable
 from fireboar.storage import load_trainings, load_sessions, get_archived_trainings
-from fireboar.imports import export_json, import_json, import_kate
+from fireboar.imports import export_json, import_json, import_kate_entry
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session
 
@@ -36,21 +36,21 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
 
     file_picker = ft.FilePicker()
     async def import_json_file(e):
-        await import_json(e, page, file_picker)
+        files = await file_picker.pick_files(
+            allow_multiple=False,
+            with_data=True,
+        )
+        await import_json(page, files)
         await home_ui(page, ui, show_archived=show_archived)
 
     async def import_kate_file(e):
-        kate_button.content = "wgrywam..."
-        kate_button.disabled = True
-        await import_kate(e, page, file_picker, home_function=ui.show_home)
-        kate_button.content = "↗ Wgraj arkusz od Kate"
-        kate_button.disabled = False
+        await import_kate_entry(page, home_function=ui.show_home)
         await home_ui(page, ui, show_archived=show_archived)
 
     async def export_json_file(e):
-        await export_json(e, file_picker)
+        await export_json(file_picker)
 
-    kate_button = ft.Button("↗ Wgraj arkusz od Kate", on_click=import_kate_file, expand=True, width=4000, height=50)
+    kate_button = ft.Button("↗ Wgraj arkusz Google", on_click=import_kate_file, expand=True, width=4000, height=50)
     page.add(
         ft.Container(
             expand=True,
