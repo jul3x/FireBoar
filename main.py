@@ -16,7 +16,6 @@ from fireboar.pages.home import UI, home_ui
 from fireboar.pages.sessions import sessions_show_ui, pb_show_ui
 from fireboar.pages.start import start_entry_ui
 
-# TODO: Export to XLSX
 
 async def main(page: ft.Page):
     page.title = "FireBoar"

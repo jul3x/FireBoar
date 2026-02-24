@@ -2,7 +2,7 @@ import flet as ft
 from dataclasses import dataclass
 from typing import Callable
 from fireboar.storage import load_trainings, load_sessions, get_archived_trainings
-from fireboar.imports import export_json, import_json, import_kate_entry
+from fireboar.imports import export_json, import_json, import_kate_entry, export_kate
 from fireboar.utils import show_dialog
 from fireboar.training import Training, Session
 
@@ -50,7 +50,9 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
     async def export_json_file(e):
         await export_json(file_picker)
 
-    kate_button = ft.Button("↗ Wgraj arkusz Google", on_click=import_kate_file, expand=True, width=4000, height=50)
+    async def export_kate_file(e):
+        await export_kate(file_picker)
+
     page.add(
         ft.Container(
             expand=True,
@@ -59,10 +61,11 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
                     logo,
                     ft.Text("Poczuj w sobie siłę dzika!", size=20, weight="bold", text_align="center"),
                     ft.Text(""),
-                    ft.Button("➕ Dodaj trening", on_click=ui.add_training, expand=True, width=4000, height=50),
-                    kate_button,
-                    ft.Button("↗ Wgraj backup", on_click=import_json_file, expand=True, width=4000, height=50),
-                    ft.Button("↘ Zrób backup", on_click=export_json_file, expand=True, width=4000, height=50),
+                    ft.Button("💪 Dodaj trening", on_click=ui.add_training, expand=True, width=4000, height=50),
+                    ft.Button("📤 Wgraj arkusz Google", on_click=import_kate_file, expand=True, width=4000, height=50),
+                    ft.Button("💾 Zapisz arkusz", on_click=export_kate_file, expand=True, width=4000, height=50),
+                    ft.Button("♻️ Wgraj backup", on_click=import_json_file, expand=True, width=4000, height=50),
+                    ft.Button("🛟 Zrób backup", on_click=export_json_file, expand=True, width=4000, height=50),
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),

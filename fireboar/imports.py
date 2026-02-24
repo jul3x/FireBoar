@@ -4,7 +4,8 @@ import re
 from datetime import datetime
 import asyncio
 import httpx
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
+from openpyxl.styles import Side, Border, PatternFill, Font
 from io import BytesIO
 from fireboar.training import Training, Exercise, Session
 from fireboar.storage import save_trainings, save_sessions, load_trainings, load_sessions
@@ -53,10 +54,23 @@ async def import_json(page, files):
 async def export_json(json_file_picker):
     trainings = [t.to_json() for t in await load_trainings()]
     sessions = [s.to_json() for s in await load_sessions()]
+    curr_date = datetime.now().strftime("%Y_%m_%d")
     await json_file_picker.save_file(
         dialog_title="Zapisz treningi",
-        file_name="fireboar_trainings.json",
+        file_name=f"fireboar_trainings_{curr_date}.json",
         src_bytes=json.dumps({"trainings": trainings, "sessions": sessions}).encode("utf-8"),
+    )
+
+
+async def export_kate(file_picker):
+    trainings = await load_trainings()
+    sessions = await load_sessions()
+    curr_date = datetime.now().strftime("%Y_%m_%d")
+    sheet_data = await get_training_sheet(trainings, sessions)
+    await file_picker.save_file(
+        dialog_title="Zapisz arkusz treningowy",
+        file_name=f"fireboar_trainings_{curr_date}.xlsx",
+        src_bytes=sheet_data,
     )
 
 
@@ -240,6 +254,116 @@ async def process_kate_sheet(page, wb, sheet_name: str | None) -> Training:
         "Ładuj",
     )
 
+
+async def get_training_sheet(trainings: list[Training], sessions: list[Session]) -> bytes:
+    buffer = BytesIO()
+    wb = Workbook()
+    wb.remove(wb.active)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    for t in trainings:
+        wb.create_sheet(t.name)
+        sheet = wb[t.name]
+
+        curr_row = 1
+        starting_row = 0
+        supersets = {}
+
+        sheet.column_dimensions['A'].width = 12
+        sheet.column_dimensions['D'].width = 10
+        sheet.column_dimensions['E'].width = 25
+        sheet.column_dimensions['F'].width = 10
+        sheet.column_dimensions['G'].width = 25
+        sheet.column_dimensions['H'].width = 10
+        sheet.column_dimensions['I'].width = 25
+        sheet.column_dimensions['J'].width = 10
+        sheet.column_dimensions['K'].width = 25
+        s_for_training = t.get_sessions(sessions)
+        for ex in sorted(t.exercises, key=lambda e: e.superset_id):
+            bgfill = get_bg_for_exercise(ex)
+
+            supersets.setdefault(ex.superset_id, 0)
+            supersets[ex.superset_id] += 1
+
+            # Header
+            sheet[f"A{curr_row}"].fill = bgfill
+            if ex.superset_id:
+                sheet[f"A{curr_row}"] = f"{ex.superset_id}{supersets[ex.superset_id]}"
+            sheet[f"B{curr_row}"] = ex.name
+            sheet[f"B{curr_row}"].fill = bgfill
+
+            # Second headers
+            curr_row += 1
+            sheet[f"A{curr_row}"] = "TRENING"
+            sheet[f"B{curr_row}"] = "SERIE"
+            sheet[f"C{curr_row}"] = "POWT."
+
+            curr_column = 'C'
+            for s in range(ex.sets):
+                curr_column = chr(ord(curr_column) + 1)
+                sheet[f"{curr_column}{curr_row}"] = f"SERIA {s + 1}"
+                curr_column = chr(ord(curr_column) + 1)
+                sheet[f"{curr_column}{curr_row}"] = f"uwagi"
+
+            sheet.merge_cells(f"B{curr_row - 1}:{curr_column}{curr_row - 1}")
+            max_column = curr_column
+
+            # Data
+            curr_row += 1
+            for s in s_for_training:
+                sheet[f"A{curr_row}"] = s.get_date()
+                sheet[f"B{curr_row}"] = str(ex.sets)
+                sheet[f"C{curr_row}"] = str(ex.suggested_reps)
+                curr_column = 'C'
+                for session_set in s.sets:
+                    if session_set.get_id() != ex.id:
+                        continue
+
+                    curr_column = chr(ord(curr_column) + 1)
+                    sheet[f"{curr_column}{curr_row}"] = f"{session_set.weight} x {session_set.reps}"
+                    curr_column = chr(ord(curr_column) + 1)
+                    sheet[f"{curr_column}{curr_row}"] = session_set.notes
+                curr_row += 1
+
+            for row in sheet.iter_rows(min_row=starting_row + 1, max_row=curr_row - 1, min_col=1, max_col=ord(max_column) - ord('A') + 1):
+                for cell in row:
+                    cell.border = thin_border
+
+            starting_row = curr_row
+            curr_row += 1
+
+        font = Font(name="Roboto Mono", size=12, bold=False, color="000000")
+        for row in sheet.iter_rows():
+            for cell in row:
+                cell.font = font
+
+    wb.save(buffer)
+    return buffer.getvalue()
+
+
+LONG_REST_COLOR = (74, 134, 232)
+MEDIUM_REST_COLOR = (201, 218, 248)
+SHORT_REST_COLOR = (217, 234, 211)
+
+
+def get_bg_for_exercise(ex: Exercise) -> PatternFill:
+    long_rest = '{:02X}{:02X}{:02X}'.format(*LONG_REST_COLOR)
+    medium_rest = '{:02X}{:02X}{:02X}'.format(*MEDIUM_REST_COLOR)
+    short_rest = '{:02X}{:02X}{:02X}'.format(*SHORT_REST_COLOR)
+
+    if ex.rest_seconds < 40:
+        color = short_rest
+    if ex.rest_seconds >= 40:
+        color = medium_rest
+    if ex.rest_seconds > 80:
+        color = long_rest
+    return PatternFill(start_color=color, end_color=color, fill_type="solid")
+
+
 def excel_rgb_to_tuple(argb):
     if argb is None:
         return None
@@ -257,9 +381,9 @@ def get_rest(cell) -> int:
         return sum((a - b) ** 2 for a, b in zip(c1, c2))
 
     targets = {
-        180: (74, 134, 232),
-        60: (201, 218, 248),
-        20: (217, 234, 211),
+        180: LONG_REST_COLOR,
+        60: MEDIUM_REST_COLOR,
+        20: SHORT_REST_COLOR,
     }
 
     closest = min(
