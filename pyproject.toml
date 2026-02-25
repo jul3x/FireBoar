@@ -8,8 +8,8 @@ authors = [
     { name = "Julian Prolejko", email = "self@j3x.dev" }
 ]
 dependencies = [
-    "flet==0.80.6.dev7659",
-    "flet-audio==0.80.6.dev7659",
+    "flet==0.81",
+    "flet-audio==0.81",
     "dataclasses-json",
     "openpyxl",
     "httpx",
