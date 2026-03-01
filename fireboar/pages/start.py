@@ -129,6 +129,21 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         except asyncio.TimeoutError:
             print("Timeouted waiting for beep to play")
 
+    async def _acquire_wake_lock():
+        try:
+            from js import navigator
+            return await navigator.wakeLock.request("screen")
+        except Exception as e:
+            print(f"Wake lock not available: {e}")
+            return None
+
+    def _release_wake_lock(wake_lock):
+        if wake_lock is not None:
+            try:
+                wake_lock.release()
+            except Exception:
+                pass
+
     async def _run_timer(timer_seconds: int, label_fn, prepare_text: str):
         """Wall-clock countdown. Returns when timer expires or skip button is pressed.
         label_fn(secs) -> str  builds the timer_text value for a given remaining seconds."""
@@ -140,33 +155,32 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         page.add(ft.Button("⏭ Pomiń", on_click=skip, width=4000, height=50))
         page.update()
 
-        end_time = time.monotonic() + timer_seconds
+        end_time = time.time() + timer_seconds
         beep_played = False
+        wake_lock = await _acquire_wake_lock()
+        try:
+            while not skip_event.is_set():
+                remaining = end_time - time.time()
+                if remaining <= 0:
+                    break
 
-        while not skip_event.is_set():
-            remaining = end_time - time.monotonic()
-            if remaining <= 0:
-                break
+                display_secs = math.ceil(remaining)
 
-            display_secs = math.ceil(remaining)
+                if display_secs <= 3 and not beep_played:
+                    await play_beep()
+                    beep_played = True
 
-            if display_secs <= 3 and not beep_played:
-                await play_beep()
-                beep_played = True
+                timer_text.value = label_fn(display_secs)
+                if display_secs < 4:
+                    timer_text.value += prepare_text
+                page.update()
 
-            timer_text.value = label_fn(display_secs)
-            if display_secs < 4:
-                timer_text.value += prepare_text
-            page.update()
-
-            # Sleep until the next integer-second boundary, or until skipped.
-            # This resyncs immediately after the screen wakes from lock.
-            frac = remaining - math.floor(remaining)
-            sleep_for = frac if frac > 1e-3 else 1.0
-            try:
-                await asyncio.wait_for(skip_event.wait(), timeout=sleep_for)
-            except asyncio.TimeoutError:
-                pass
+                try:
+                    await asyncio.wait_for(skip_event.wait(), timeout=0.5)
+                except asyncio.TimeoutError:
+                    pass
+        finally:
+            _release_wake_lock(wake_lock)
 
         hf = ft.HapticFeedback()
         try:

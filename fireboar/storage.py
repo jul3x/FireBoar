@@ -23,7 +23,7 @@ def _get_prefs():
 async def _prefs_get(key: str) -> str | None:
     for attempt in range(5):
         try:
-            return await asyncio.wait_for(_get_prefs().get(key), timeout=5)
+            return await asyncio.wait_for(_get_prefs().get(key), timeout=2)
         except asyncio.TimeoutError:
             print(f"SharedPreferences.get timeout (attempt {attempt + 1}/5): {key}")
     raise StorageError(f"Nie można odczytać danych po 5 próbach.\nWyłącz tryb oszczędzania energii i uruchom ponownie.")
@@ -31,7 +31,7 @@ async def _prefs_get(key: str) -> str | None:
 async def _prefs_set(key: str, value: str):
     for attempt in range(5):
         try:
-            await asyncio.wait_for(_get_prefs().set(key, value), timeout=5)
+            await asyncio.wait_for(_get_prefs().set(key, value), timeout=2)
             return
         except asyncio.TimeoutError:
             print(f"SharedPreferences.set timeout (attempt {attempt + 1}/5): {key}")
