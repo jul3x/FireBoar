@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Callable
 from fireboar.storage import load_trainings, load_sessions, get_archived_trainings
 from fireboar.imports import export_json, import_json, import_kate_entry, export_kate
-from fireboar.utils import show_dialog
+from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session
 
 
@@ -35,17 +35,19 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
     page.bgcolor = "#222222"
 
     file_picker = ft.FilePicker()
-    async def import_json_file(e):
+    async def _import_json_file(e):
         files = await file_picker.pick_files(
             allow_multiple=False,
             with_data=True,
         )
         await import_json(page, files)
         await home_ui(page, ui, show_archived=show_archived)
+    import_json_file = guard(page, _import_json_file)
 
-    async def import_kate_file(e):
+    async def _import_kate_file(e):
         await import_kate_entry(page, home_function=ui.show_home)
         await home_ui(page, ui, show_archived=show_archived)
+    import_kate_file = guard(page, _import_kate_file)
 
     async def export_json_file(e):
         await export_json(file_picker)
@@ -110,11 +112,12 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
             )
         )
 
-    async def show_trainings(e):
+    async def _show_trainings(e):
         if show_archived:
             await home_ui(page, ui, False)
         else:
             await home_ui(page, ui, True)
+    show_trainings = guard(page, _show_trainings)
 
     page.add(
         ft.Button(

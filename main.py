@@ -10,7 +10,7 @@ from fireboar.storage import (
     archive_training_instance,
     dearchive_training_instance,
 )
-from fireboar.utils import show_dialog
+from fireboar.utils import show_dialog, guard
 from fireboar.pages.training_edit import training_edit_ui, training_add_ui
 from fireboar.pages.home import UI, home_ui
 from fireboar.pages.sessions import sessions_show_ui, pb_show_ui
@@ -80,6 +80,15 @@ async def main(page: ft.Page):
         )
 
         await home_ui(page, ui, show_archived=False)
+
+    show_home = guard(page, show_home)
+    show_sessions = guard(page, show_sessions)
+    show_pb = guard(page, show_pb)
+    show_add_training = guard(page, show_add_training)
+    edit_training = guard(page, edit_training)
+    delete_training = guard(page, delete_training)
+    start_training = guard(page, start_training)
+    archive_training = guard(page, archive_training)
 
     await show_home()
 

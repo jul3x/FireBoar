@@ -1,6 +1,6 @@
 import flet as ft
 from fireboar.storage import load_trainings, save_trainings, get_training, save_training
-from fireboar.utils import show_dialog
+from fireboar.utils import show_dialog, guard
 from fireboar.training import Exercise, Training, ExerciseType, IntervalConfig
 
 
@@ -97,10 +97,11 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         for f in interval_fields:
             f.visible = ex.type == ExerciseType.INTERVAL
 
-    async def save_training_button(e):
+    async def _save_training_button(e):
         await save_training(training)
         await show_dialog(page, "Ćwiczenia ogarnięte", "Teraz tylko ładować.", "Ok")
         await home_function()
+    save_training_button = guard(page, _save_training_button)
 
     def create_card(ex: Exercise, new: bool = False):
         header = ft.Text(ex.name or 'Kliknij by rozwinąć')
@@ -255,7 +256,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
 async def training_add_ui(page: ft.Page, home_function):
     name = ft.TextField(label="Nazwa treningu", border_color="#888888", color="#ffffff", bgcolor="#444444", expand=True)
 
-    async def save(e):
+    async def _save(e):
         trainings = await load_trainings()
         trainings.append(Training(name=name.value))
         await save_trainings(trainings)
@@ -266,6 +267,7 @@ async def training_add_ui(page: ft.Page, home_function):
             "Będę łoił",
         )
         await home_function()
+    save = guard(page, _save)
 
     page.controls.clear()
     page.add(

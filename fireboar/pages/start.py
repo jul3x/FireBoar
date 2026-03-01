@@ -2,7 +2,7 @@ import asyncio
 import flet as ft
 import flet_audio as fta
 from fireboar.storage import load_trainings, load_sessions, save_sessions
-from fireboar.utils import show_dialog
+from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
 
 
@@ -104,7 +104,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         session.sets.append(sets[set_index])
         exited_flag.set()
 
-    async def end_session(e):
+    async def _end_session(e):
         nonlocal session
         sessions.append(session)
         await save_sessions(sessions)
@@ -119,6 +119,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             # Please keep this order
             exited_flag.set()
             saved_flag.set()
+    end_session = guard(page, _end_session)
 
     async def play_beep():
         try:
@@ -149,7 +150,10 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             await asyncio.sleep(1)
 
         hf = ft.HapticFeedback()
-        await hf.heavy_impact()
+        try:
+            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
+        except asyncio.TimeoutError:
+            pass
 
     async def start_rest_interval(action):
         page.controls.clear()
@@ -171,7 +175,10 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             await asyncio.sleep(1)
 
         hf = ft.HapticFeedback()
-        await hf.heavy_impact()
+        try:
+            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
+        except asyncio.TimeoutError:
+            pass
 
     async def start_working_interval(action):
         page.controls.clear()
@@ -193,7 +200,10 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             await asyncio.sleep(1)
 
         hf = ft.HapticFeedback()
-        await hf.heavy_impact()
+        try:
+            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
+        except asyncio.TimeoutError:
+            pass
 
     async def show_set_input(saved, exited, action):
         ex = sets[set_index]

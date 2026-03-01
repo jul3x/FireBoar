@@ -4,9 +4,35 @@ from typing import Callable
 import asyncio
 
 
+class StorageError(Exception):
+    pass
+
+
+async def show_fatal_error(page: ft.Page, message: str):
+    page.controls.clear()
+    page.add(
+        ft.Text("Błąd krytyczny!", size=28, color=ft.Colors.RED, text_align="center", width=4000, margin=20),
+        ft.Text(message, size=16, text_align="center", width=4000),
+        ft.Text("Uruchom aplikację ponownie.", size=18, weight="bold", text_align="center", width=4000, margin=20),
+    )
+    page.update()
+
+
+def guard(page: ft.Page, fn):
+    async def wrapper(*args, **kwargs):
+        try:
+            return await fn(*args, **kwargs)
+        except StorageError as e:
+            await show_fatal_error(page, str(e))
+    return wrapper
+
+
 async def vibrate():
     hf = ft.HapticFeedback()
-    await hf.vibrate()
+    try:
+        await asyncio.wait_for(hf.vibrate(), timeout=1)
+    except asyncio.TimeoutError:
+        pass
 
 
 async def show_dialog(page: ft.Page, title: str, content: str, action: str, action_cb: Callable | None = None):

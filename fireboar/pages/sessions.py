@@ -1,6 +1,6 @@
 import flet as ft
 from fireboar.storage import delete_session_from_list, load_sessions
-from fireboar.utils import show_dialog
+from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session, PersonalBest
 
 
@@ -11,11 +11,12 @@ async def sessions_show_ui(training: Training, sessions: list[Session], page: ft
     )
 
     async def delete_session(e):
-        async def delete_session_confirmed():
+        async def _delete_session_confirmed():
             await delete_session_from_list(e.control.data)
             sessions = await load_sessions()
             sessions_for_t = training.get_sessions(sessions)
             await sessions_show_ui(training, sessions_for_t, page, home_function)
+        delete_session_confirmed = guard(page, _delete_session_confirmed)
         await show_dialog(
             page,
             "Usunąć sesyjkę?",
