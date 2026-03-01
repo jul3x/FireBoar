@@ -67,7 +67,7 @@ async def main(page: ft.Page):
             await show_dialog(page, "Trening zarchiwizowany", "Ładujesz coś nowego byku?", "Keep grinding")
         await show_home()
 
-    async def show_home():
+    async def show_home(e=None):
         ui = UI(
             show_home=show_home,
             add_training=show_add_training,

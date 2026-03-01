@@ -1,4 +1,6 @@
 import asyncio
+import math
+import time
 import flet as ft
 import flet_audio as fta
 from fireboar.storage import load_trainings, load_sessions, save_sessions
@@ -127,6 +129,51 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         except asyncio.TimeoutError:
             print("Timeouted waiting for beep to play")
 
+    async def _run_timer(timer_seconds: int, label_fn, prepare_text: str):
+        """Wall-clock countdown. Returns when timer expires or skip button is pressed.
+        label_fn(secs) -> str  builds the timer_text value for a given remaining seconds."""
+        skip_event = asyncio.Event()
+
+        async def skip(e):
+            skip_event.set()
+
+        page.add(ft.Button("⏭ Pomiń", on_click=skip, width=4000, height=50))
+        page.update()
+
+        end_time = time.monotonic() + timer_seconds
+        beep_played = False
+
+        while not skip_event.is_set():
+            remaining = end_time - time.monotonic()
+            if remaining <= 0:
+                break
+
+            display_secs = math.ceil(remaining)
+
+            if display_secs <= 3 and not beep_played:
+                await play_beep()
+                beep_played = True
+
+            timer_text.value = label_fn(display_secs)
+            if display_secs < 4:
+                timer_text.value += prepare_text
+            page.update()
+
+            # Sleep until the next integer-second boundary, or until skipped.
+            # This resyncs immediately after the screen wakes from lock.
+            frac = remaining - math.floor(remaining)
+            sleep_for = frac if frac > 1e-3 else 1.0
+            try:
+                await asyncio.wait_for(skip_event.wait(), timeout=sleep_for)
+            except asyncio.TimeoutError:
+                pass
+
+        hf = ft.HapticFeedback()
+        try:
+            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
+        except asyncio.TimeoutError:
+            pass
+
     async def start_rest(action=None, is_start=False, next_set=None):
         page.controls.clear()
         page.bgcolor = "#004422"
@@ -137,23 +184,8 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         add_set_metadata(page, ex=next_set or ex, sessions=sessions, last_session=last_session)
 
         timer_seconds = ex.exercise.rest_seconds if not is_start else 10
-        for i in range(timer_seconds, 0, -1):
-            if is_start:
-                timer_text.value = f"\nStartujemy za: \n⏱ {i}s\n"
-            else:
-                timer_text.value = f"\nRest: \n⏱ {i}s\n"
-            if i == 3:
-                await play_beep()
-            if i < 4:
-                timer_text.value += "Przygotuj się!\n"
-            page.update()
-            await asyncio.sleep(1)
-
-        hf = ft.HapticFeedback()
-        try:
-            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
-        except asyncio.TimeoutError:
-            pass
+        label = (lambda s: f"\nStartujemy za: \n⏱ {s}s\n") if is_start else (lambda s: f"\nRest: \n⏱ {s}s\n")
+        await _run_timer(timer_seconds, label, "Przygotuj się!\n")
 
     async def start_rest_interval(action):
         page.controls.clear()
@@ -164,21 +196,11 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         add_set_header(page, ex=ex, action=action, is_next=False)
         add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
 
-        timer_seconds = ex.exercise.interval_config.rest_time
-        for i in range(timer_seconds, 0, -1):
-            timer_text.value = f"\nRest interwałowy: \n⏱ {i}s\n"
-            if i == 3:
-                await play_beep()
-            if i < 4:
-                timer_text.value += "Przygotuj się!\n"
-            page.update()
-            await asyncio.sleep(1)
-
-        hf = ft.HapticFeedback()
-        try:
-            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
-        except asyncio.TimeoutError:
-            pass
+        await _run_timer(
+            ex.exercise.interval_config.rest_time,
+            lambda s: f"\nRest interwałowy: \n⏱ {s}s\n",
+            "Przygotuj się!\n",
+        )
 
     async def start_working_interval(action):
         page.controls.clear()
@@ -189,21 +211,11 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         add_set_header(page, ex=ex, action=action, is_next=False)
         add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
 
-        timer_seconds = ex.exercise.interval_config.working_time
-        for i in range(timer_seconds, 0, -1):
-            timer_text.value = f"\nŁaduj: ⏱ {i}s\n"
-            if i == 3:
-                await play_beep()
-            if i < 4:
-                timer_text.value += "Już prawie...\n"
-            page.update()
-            await asyncio.sleep(1)
-
-        hf = ft.HapticFeedback()
-        try:
-            await asyncio.wait_for(hf.heavy_impact(), timeout=1)
-        except asyncio.TimeoutError:
-            pass
+        await _run_timer(
+            ex.exercise.interval_config.working_time,
+            lambda s: f"\nŁaduj: ⏱ {s}s\n",
+            "Już prawie...\n",
+        )
 
     async def show_set_input(saved, exited, action):
         ex = sets[set_index]
