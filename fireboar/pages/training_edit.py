@@ -1,7 +1,7 @@
 import flet as ft
 from fireboar.storage import load_trainings, save_trainings, get_training, save_training
-from fireboar.utils import show_dialog, guard
-from fireboar.training import Exercise, Training, ExerciseType, IntervalConfig
+from fireboar.utils import show_dialog, guard, normalize_string
+from fireboar.training import Exercise, ExerciseSet, Progression, Training, ExerciseType, IntervalConfig
 
 
 def string_to_hex_color(s: str) -> str:
@@ -139,96 +139,217 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
             ),
         ]
 
+        # Simple mode fields (hidden when advanced sets enabled)
+        simple_fields_col = ft.Column([
+            ft.TextField(
+                label="Propozycja obciążenia",
+                expand=True,
+                value=ex.suggested_weight,
+                border_color="#555555",
+                color="#ffffff",
+                bgcolor="#111111",
+                on_change=lambda e, ex=ex: ex.set_weight(e.control.value),
+            ),
+            ft.TextField(
+                label="Propozycja powtórzeń",
+                expand=True,
+                value=ex.suggested_reps,
+                border_color="#555555",
+                color="#ffffff",
+                bgcolor="#111111",
+                on_change=lambda e, ex=ex: ex.set_reps(e.control.value),
+            ),
+            ft.TextField(
+                label="Rest pomiędzy seriami (sek)",
+                expand=True,
+                value=str(ex.rest_seconds),
+                border_color="#555555",
+                color="#ffffff",
+                bgcolor="#111111",
+                on_change=lambda e, ex=ex: ex.set_rest(e.control.value),
+            ),
+        ], visible=not ex.is_advanced())
+
+        # Advanced per-set rows (shown when advanced sets enabled)
+        advanced_column = ft.Column([], visible=ex.is_advanced())
+
+        def _set_es_rest(es: ExerciseSet, v: str):
+            value = int(normalize_string(v)) or es.rest_seconds
+            if value < 1:
+                value = 1
+            es.rest_seconds = value
+
+        def _build_advanced_rows():
+            advanced_column.controls.clear()
+            for i, es in enumerate(ex.exercise_sets):
+                advanced_column.controls.append(ft.Row([
+                    ft.Text(f"S{i + 1}", size=16, width=25),
+                    ft.TextField(
+                        label="kg",
+                        value=es.suggested_weight,
+                        expand=True,
+                        border_color="#555555",
+                        color="#ffffff",
+                        bgcolor="#111111",
+                        on_change=lambda e, es=es: setattr(es, 'suggested_weight', e.control.value.strip()),
+                    ),
+                    ft.TextField(
+                        label="Powt.",
+                        value=es.suggested_reps,
+                        expand=True,
+                        border_color="#555555",
+                        color="#ffffff",
+                        bgcolor="#111111",
+                        on_change=lambda e, es=es: setattr(es, 'suggested_reps', e.control.value.strip()),
+                    ),
+                    ft.TextField(
+                        label="Rest (s)",
+                        value=str(es.rest_seconds),
+                        expand=True,
+                        border_color="#555555",
+                        color="#ffffff",
+                        bgcolor="#111111",
+                        on_change=lambda e, es=es: _set_es_rest(es, e.control.value),
+                    ),
+                ]))
+
+        if ex.is_advanced():
+            _build_advanced_rows()
+
+        def _toggle_advanced(e):
+            if e.control.value:
+                ex.enable_advanced_sets()
+                _build_advanced_rows()
+                simple_fields_col.visible = False
+                advanced_column.visible = True
+            else:
+                ex.disable_advanced_sets()
+                advanced_column.controls.clear()
+                advanced_column.visible = False
+                simple_fields_col.visible = True
+            page.update()
+
+        def _on_sets_change(e):
+            ex.set_sets(e.control.value)
+            if ex.is_advanced():
+                ex.sync_advanced_sets_count()
+                _build_advanced_rows()
+                page.update()
+
+        # Progression fields
+        prog_weight_field = ft.TextField(
+            label="Progresja: kg/sesję",
+            expand=True,
+            value=f"{ex.progression.weight_increment:g}" if ex.progression else "",
+            border_color="#555555",
+            color="#ffffff",
+            bgcolor="#111111",
+        )
+        prog_reps_field = ft.TextField(
+            label="Progresja: powt./sesję",
+            expand=True,
+            value=str(ex.progression.reps_increment) if ex.progression else "",
+            border_color="#555555",
+            color="#ffffff",
+            bgcolor="#111111",
+        )
+
+        def _update_progression(e):
+            w_str = prog_weight_field.value.strip().replace(',', '.')
+            r_str = prog_reps_field.value.strip()
+            try:
+                w_inc = float(w_str) if w_str else 0.0
+            except ValueError:
+                w_inc = 0.0
+            try:
+                r_inc = int(float(r_str)) if r_str else 0
+            except ValueError:
+                r_inc = 0
+            if w_inc == 0.0 and r_inc == 0:
+                ex.progression = None
+            else:
+                if ex.progression is None:
+                    ex.progression = Progression(weight_increment=w_inc, reps_increment=r_inc)
+                else:
+                    ex.progression.weight_increment = w_inc
+                    ex.progression.reps_increment = r_inc
+
+        prog_weight_field.on_change = _update_progression
+        prog_reps_field.on_change = _update_progression
+
         return ft.Card(
             ft.Container(
-                    padding=10,
-                    expand=True,
-                    border_radius=10,
-                    bgcolor=ft.Colors.with_opacity(0.1, string_to_hex_color(ex.superset_id)),
-                    content=ft.ExpansionTile(
-                        title=ft.Row(controls=[
-                            header,
+                padding=10,
+                expand=True,
+                border_radius=10,
+                bgcolor=ft.Colors.with_opacity(0.1, string_to_hex_color(ex.superset_id)),
+                content=ft.ExpansionTile(
+                    title=ft.Row(controls=[
+                        header,
+                    ]),
+                    controls=ft.Column(
+                        controls=[
+                        ft.Container(),
+                        ft.Row([
+                            ft.Button("Usuń", on_click=remove_exercise, data=ex.id, height=50),
+                            ft.Button("Wyżej", on_click=move_exercise_up, data=ex.id, height=50),
+                            ft.Button("Niżej", on_click=move_exercise_down, data=ex.id, height=50),
                         ]),
-                        controls=ft.Column(
-                            controls=[
-                            ft.Container(),
-                            ft.Row([
-                                ft.Button("Usuń", on_click=remove_exercise, data=ex.id, height=50),
-                                ft.Button("Wyżej", on_click=move_exercise_up, data=ex.id, height=50),
-                                ft.Button("Niżej", on_click=move_exercise_down, data=ex.id, height=50),
+                        ft.RadioGroup(
+                            expand=True,
+                            value=ex.type,
+                            content=ft.Row([
+                                ft.Radio(value=ExerciseType.NORMAL, label="normalnie"),
+                                ft.Radio(value=ExerciseType.INTERVAL, label="interwały"),
                             ]),
-                            ft.RadioGroup(
-                                expand=True,
-                                value=ex.type,
-                                content=ft.Row([
-                                    ft.Radio(value=ExerciseType.NORMAL, label="normalnie"),
-                                    ft.Radio(value=ExerciseType.INTERVAL, label="interwały"),
-                                ]),
-                                on_change=lambda e, ex=ex, fields=interval_fields: set_exercise_type(ex, e.control.value, fields),
-                            ),
-                            ft.Container(),
-                            ft.TextField(
-                                label="Nazwa",
-                                expand=True,
-                                value=ex.name,
-                                border_color="#555555",
-                                color="#ffffff",
-                                bgcolor="#111111",
-                                on_change=lambda e, ex=ex, header=header: ex.set_name(e.control.value, header),
-                            ),
-                            ft.TextField(
-                                label="Serie",
-                                expand=True,
-                                value=str(ex.sets),
-                                border_color="#555555",
-                                color="#ffffff",
-                                bgcolor="#111111",
-                                on_change=lambda e, ex=ex: ex.set_sets(e.control.value),
-                            ),
-                            ft.TextField(
-                                label="Propozycja obciążenia",
-                                expand=True,
-                                value=ex.suggested_weight,
-                                border_color="#555555",
-                                color="#ffffff",
-                                bgcolor="#111111",
-                                on_change=lambda e, ex=ex: ex.set_weight(e.control.value),
-                            ),
-                            ft.TextField(
-                                label="Propozycja powtórzeń",
-                                expand=True,
-                                value=ex.suggested_reps,
-                                border_color="#555555",
-                                color="#ffffff",
-                                bgcolor="#111111",
-                                on_change=lambda e, ex=ex: ex.set_reps(e.control.value),
-                            ),
-                            ft.TextField(
-                                label="Rest pomiędzy seriami (sek)",
-                                expand=True,
-                                value=str(ex.rest_seconds),
-                                border_color="#555555",
-                                color="#ffffff",
-                                bgcolor="#111111",
-                                on_change=lambda e, ex=ex: ex.set_rest(e.control.value),
-                            ),
-                            ft.TextField(
-                                label="Identyfikator superserii (dodaj taki sam dla ćwiczeń naprzemiennych)",
-                                expand=True,
-                                value=str(ex.superset_id),
-                                border_color="#555555",
-                                color="#ffffff",
-                                bgcolor="#111111",
-                                on_change=lambda e, ex=ex: set_superset(ex, e.control.value),
-                            ),
-                            *interval_fields,
-                            ft.Text(""),
-                        ]),
-                        expanded=new,
-                        expanded_alignment=ft.Alignment.CENTER_LEFT,
-                    )
+                            on_change=lambda e, ex=ex, fields=interval_fields: set_exercise_type(ex, e.control.value, fields),
+                        ),
+                        ft.Container(),
+                        ft.TextField(
+                            label="Nazwa",
+                            expand=True,
+                            value=ex.name,
+                            border_color="#555555",
+                            color="#ffffff",
+                            bgcolor="#111111",
+                            on_change=lambda e, ex=ex, header=header: ex.set_name(e.control.value, header),
+                        ),
+                        ft.TextField(
+                            label="Serie",
+                            expand=True,
+                            value=str(ex.sets),
+                            border_color="#555555",
+                            color="#ffffff",
+                            bgcolor="#111111",
+                            on_change=lambda e: _on_sets_change(e),
+                        ),
+                        ft.Switch(
+                            label="Zaawansowane serie (różne kg/powt./rest na serię)",
+                            value=ex.is_advanced(),
+                            on_change=_toggle_advanced,
+                            active_color="#4488ff",
+                        ),
+                        simple_fields_col,
+                        advanced_column,
+                        ft.Text("Progresja (opcjonalna):", size=14, color="#aaaaaa"),
+                        ft.Row([prog_weight_field, prog_reps_field]),
+                        ft.TextField(
+                            label="Identyfikator superserii (dodaj taki sam dla ćwiczeń naprzemiennych)",
+                            expand=True,
+                            value=str(ex.superset_id),
+                            border_color="#555555",
+                            color="#ffffff",
+                            bgcolor="#111111",
+                            on_change=lambda e, ex=ex: set_superset(ex, e.control.value),
+                        ),
+                        *interval_fields,
+                        ft.Text(""),
+                    ]),
+                    expanded=new,
+                    expanded_alignment=ft.Alignment.CENTER_LEFT,
                 )
             )
+        )
 
 
     page.add(

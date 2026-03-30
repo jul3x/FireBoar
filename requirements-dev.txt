@@ -4,4 +4,5 @@ flet-desktop-light==0.81.0
 flet_web==0.81.0
 flet-audio==0.81.0
 dataclasses_json
+js
 openpyxl

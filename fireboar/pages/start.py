@@ -4,8 +4,12 @@ import time
 import flet as ft
 import flet_audio as fta
 from fireboar.storage import load_trainings, load_sessions, save_sessions
-from fireboar.utils import show_dialog, guard
+from fireboar.utils import show_dialog, guard, normalize_string
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
+try:
+    from js import navigator
+except ImportError:
+    navigator = None
 
 
 def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None, is_next: bool = False):
@@ -49,6 +53,24 @@ def add_set_metadata(page: ft.Page, ex: SessionSet, sessions: list[Session], las
         card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
         last_set = last_session.sets[ex.set_index]
         card.content.content.controls.append(ft.Text(last_set.get_last_info(), size=22, width=4000, text_align="center"))
+
+    if last_session and ex.exercise and ex.exercise.progression:
+        prog = ex.exercise.progression
+        prog_last_set = None
+        for s in last_session.sets:
+            if s.get_id() == ex.get_id() and s.set_index == ex.set_index:
+                prog_last_set = s
+                break
+        if prog_last_set:
+            last_w = normalize_string(prog_last_set.weight)
+            last_r = int(normalize_string(prog_last_set.reps))
+            new_w = last_w + prog.weight_increment
+            new_r = last_r + prog.reps_increment
+            w_str = f"{new_w:g} kg" if new_w > 0 else "brak"
+            card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
+            card.content.content.controls.append(
+                ft.Text(f"📈 Na dziś: {w_str} x {new_r}", size=22, width=4000, text_align="center", color="#88ff88")
+            )
 
     page.add(card)
 
@@ -130,8 +152,9 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
             print("Timeouted waiting for beep to play")
 
     async def _acquire_wake_lock():
+        if navigator is None:
+            return None
         try:
-            from js import navigator
             return await navigator.wakeLock.request("screen")
         except Exception as e:
             print(f"Wake lock not available: {e}")
@@ -197,7 +220,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         add_set_header(page, ex=next_set or ex, action=action, is_next=next_set is not None)
         add_set_metadata(page, ex=next_set or ex, sessions=sessions, last_session=last_session)
 
-        timer_seconds = ex.exercise.rest_seconds if not is_start else 10
+        timer_seconds = ex.get_rest_seconds() if not is_start else 10
         label = (lambda s: f"\nStartujemy za: \n⏱ {s}s\n") if is_start else (lambda s: f"\nRest: \n⏱ {s}s\n")
         await _run_timer(timer_seconds, label, "Przygotuj się!\n")
 

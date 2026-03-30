@@ -42,6 +42,21 @@ class IntervalConfig:
 
 @dataclass_json
 @dataclass(slots=True)
+class ExerciseSet:
+    suggested_weight: str = ""
+    suggested_reps: str = "8 - 10"
+    rest_seconds: int = 60
+
+
+@dataclass_json
+@dataclass(slots=True)
+class Progression:
+    weight_increment: float = 0.0
+    reps_increment: int = 0
+
+
+@dataclass_json
+@dataclass(slots=True)
 class Exercise:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     name: str = ""
@@ -52,6 +67,8 @@ class Exercise:
     superset_id: str = ""
     type: ExerciseType = ExerciseType.NORMAL
     interval_config: IntervalConfig = field(default_factory=IntervalConfig)
+    exercise_sets: list[ExerciseSet] = field(default_factory=list)
+    progression: Progression | None = None
 
     def set_name(self, name: str, header):
         self.name = name.strip()
@@ -77,6 +94,49 @@ class Exercise:
 
     def set_superset(self, id: str):
         self.superset_id = id.strip()
+
+    def is_advanced(self) -> bool:
+        return bool(self.exercise_sets)
+
+    def get_set_weight(self, set_index: int) -> str:
+        if self.exercise_sets and 0 < set_index <= len(self.exercise_sets):
+            return self.exercise_sets[set_index - 1].suggested_weight
+        return self.suggested_weight
+
+    def get_set_reps(self, set_index: int) -> str:
+        if self.exercise_sets and 0 < set_index <= len(self.exercise_sets):
+            return self.exercise_sets[set_index - 1].suggested_reps
+        return self.suggested_reps
+
+    def get_set_rest(self, set_index: int) -> int:
+        if self.exercise_sets and 0 < set_index <= len(self.exercise_sets):
+            return self.exercise_sets[set_index - 1].rest_seconds
+        return self.rest_seconds
+
+    def enable_advanced_sets(self):
+        self.exercise_sets = [
+            ExerciseSet(
+                suggested_weight=self.suggested_weight,
+                suggested_reps=self.suggested_reps,
+                rest_seconds=self.rest_seconds,
+            )
+            for _ in range(self.sets)
+        ]
+
+    def disable_advanced_sets(self):
+        self.exercise_sets = []
+
+    def sync_advanced_sets_count(self):
+        current = len(self.exercise_sets)
+        if current < self.sets:
+            for _ in range(self.sets - current):
+                self.exercise_sets.append(ExerciseSet(
+                    suggested_weight=self.suggested_weight,
+                    suggested_reps=self.suggested_reps,
+                    rest_seconds=self.rest_seconds,
+                ))
+        elif current > self.sets:
+            self.exercise_sets = self.exercise_sets[:self.sets]
 
 
 class TrainingActionType(StrEnum):
@@ -130,8 +190,12 @@ class SessionSet:
         return data
 
     def get_suggestions(self) -> str:
-        text = f"📔 Proponowane {self.exercise.suggested_weight or 'pusto'} x {self.exercise.suggested_reps or '1'}"
-        return text
+        weight = self.exercise.get_set_weight(self.set_index) or 'pusto'
+        reps = self.exercise.get_set_reps(self.set_index) or '1'
+        return f"📔 Proponowane {weight} x {reps}"
+
+    def get_rest_seconds(self) -> int:
+        return self.exercise.get_set_rest(self.set_index)
 
     def get_last_info(self) -> str:
         return f"⌚ Ostatnio: {self.weight} x {self.reps} ({self.notes})"
