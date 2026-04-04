@@ -168,7 +168,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                 bgcolor="#111111",
                 on_change=lambda e, ex=ex: ex.set_rest(e.control.value),
             ),
-        ], visible=not ex.is_advanced())
+        ], visible=not ex.is_advanced() and not ex.has_session_plans())
 
         # Advanced per-set rows (shown when advanced sets enabled)
         advanced_column = ft.Column([], visible=ex.is_advanced() and not ex.has_session_plans())
@@ -307,6 +307,9 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         def _toggle_session_plans(e):
             if e.control.value:
                 ex.enable_session_plans()
+                ex.progression = None
+                prog_weight_field.value = ""
+                prog_reps_field.value = ""
                 _build_session_plans_ui()
                 simple_fields_col.visible = False
                 advanced_column.visible = False

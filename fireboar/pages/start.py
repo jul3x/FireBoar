@@ -44,7 +44,9 @@ def add_set_metadata(page: ft.Page, ex: SessionSet, sessions: list[Session], las
        ),
        margin=ft.Margin(bottom=15, top=15),
     )
-    card.content.content.controls.append(ft.Text(ex.get_suggestions(), size=22, width=4000, text_align="center"))
+    has_progression = bool(ex.exercise and ex.exercise.progression)
+    suggestion_color = None if has_progression else "#88ff88"
+    card.content.content.controls.append(ft.Text(ex.get_suggestions(), size=22, width=4000, text_align="center", color=suggestion_color))
     pb = PersonalBest.get_pb_for_training(sessions, ex.exercise.id)
     if pb:
         card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
@@ -319,6 +321,16 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
     async def show_set_input(saved, exited, action):
         ex = sets[set_index]
         timer_text.value = f"\nŁaduj i podsumuj!"
+
+        # Pre-fill with the most recent set of this exercise already done in the current session
+        prev_set = None
+        for s in reversed(session.sets):
+            if s.get_id() == ex.get_id():
+                prev_set = s
+                break
+        weight.value = prev_set.weight if prev_set else ""
+        reps.value = str(prev_set.reps) if prev_set else ""
+        notes.value = prev_set.notes if prev_set else ""
 
         page.controls.clear()
         page.bgcolor = "#222222"
