@@ -13,11 +13,13 @@ STORAGE_SESSIONS = "sessions"
 STORAGE_SESSION = "session"
 
 _prefs = None
+_prefs_keepalive = None  # extra ref to prevent flet 0.83+ unregister_services() from GC'ing the singleton
 
 def _get_prefs():
-    global _prefs
+    global _prefs, _prefs_keepalive
     if _prefs is None:
         _prefs = ft.SharedPreferences()
+        _prefs_keepalive = _prefs
     return _prefs
 
 async def _prefs_get(key: str) -> str | None:

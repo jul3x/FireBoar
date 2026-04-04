@@ -103,14 +103,14 @@ async def import_kate_entry(page, home_function):
                 file_content = r.content
 
             await import_kate(page, file_content, home_function)
-        except Exception as e:
+        except Exception as ex:
             await show_dialog(
                 page,
                 "Coś nie pykło",
                 "Czy to na pewno URL skopiowany prosto od wujka Google?",
                 "Ogar",
             )
-            print(e)
+            print(ex)
             pass
 
         button.content = "Wczytaj arkusz"

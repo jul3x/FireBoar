@@ -147,9 +147,11 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
     async def play_beep():
         try:
-            await asyncio.wait_for(beep.play(), timeout=1)
+            await asyncio.wait_for(beep.play(), timeout=3)
         except asyncio.TimeoutError:
             print("Timeouted waiting for beep to play")
+        except Exception as e:
+            print(f"Failed to play beep: {e}")
 
     async def _acquire_wake_lock():
         if navigator is None:
@@ -208,7 +210,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         hf = ft.HapticFeedback()
         try:
             await asyncio.wait_for(hf.heavy_impact(), timeout=1)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, Exception):
             pass
 
     async def start_rest(action=None, is_start=False, next_set=None):

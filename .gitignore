@@ -162,5 +162,9 @@ cython_debug/
 # Flet
 storage/
 uploads/
+
+# Flutter packages (override lib/ ignore above)
+!packages/**/lib/
+!packages/**/lib/**
 example_data/
 

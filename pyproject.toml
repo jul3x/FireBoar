@@ -8,8 +8,8 @@ authors = [
     { name = "Julian Prolejko", email = "self@j3x.dev" }
 ]
 dependencies = [
-    "flet==0.81",
-    "flet-audio==0.81",
+    "flet==0.83.1",
+    "flet-audio==0.83.1",
     "dataclasses-json",
     "openpyxl",
     "httpx",
@@ -17,6 +17,7 @@ dependencies = [
 
 [tool.flet.flutter.pubspec.dependency_overrides]
 flet = { git = { url = "https://github.com/flet-dev/flet.git", ref = "main", path = "packages/flet" } }
+flet_audio = { path = "../../packages/flet_audio" }
 
 [dependency-groups]
 dev = [

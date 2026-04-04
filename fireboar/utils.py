@@ -31,7 +31,7 @@ async def vibrate():
     hf = ft.HapticFeedback()
     try:
         await asyncio.wait_for(hf.vibrate(), timeout=1)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, Exception):
         pass
 
 
