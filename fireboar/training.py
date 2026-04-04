@@ -50,6 +50,12 @@ class ExerciseSet:
 
 @dataclass_json
 @dataclass(slots=True)
+class SessionPlan:
+    sets: list[ExerciseSet] = field(default_factory=list)
+
+
+@dataclass_json
+@dataclass(slots=True)
 class Progression:
     weight_increment: float = 0.0
     reps_increment: int = 0
@@ -69,6 +75,8 @@ class Exercise:
     interval_config: IntervalConfig = field(default_factory=IntervalConfig)
     exercise_sets: list[ExerciseSet] = field(default_factory=list)
     progression: Progression | None = None
+    session_plans: list[SessionPlan] = field(default_factory=list)
+    current_plan_index: int = 0
 
     def set_name(self, name: str, header):
         self.name = name.strip()
@@ -98,19 +106,31 @@ class Exercise:
     def is_advanced(self) -> bool:
         return bool(self.exercise_sets)
 
+    def has_session_plans(self) -> bool:
+        return bool(self.session_plans)
+
+    def get_active_plan_sets(self) -> list[ExerciseSet]:
+        if self.session_plans:
+            idx = self.current_plan_index % len(self.session_plans)
+            return self.session_plans[idx].sets
+        return self.exercise_sets
+
     def get_set_weight(self, set_index: int) -> str:
-        if self.exercise_sets and 0 < set_index <= len(self.exercise_sets):
-            return self.exercise_sets[set_index - 1].suggested_weight
+        active = self.get_active_plan_sets()
+        if active and 0 < set_index <= len(active):
+            return active[set_index - 1].suggested_weight
         return self.suggested_weight
 
     def get_set_reps(self, set_index: int) -> str:
-        if self.exercise_sets and 0 < set_index <= len(self.exercise_sets):
-            return self.exercise_sets[set_index - 1].suggested_reps
+        active = self.get_active_plan_sets()
+        if active and 0 < set_index <= len(active):
+            return active[set_index - 1].suggested_reps
         return self.suggested_reps
 
     def get_set_rest(self, set_index: int) -> int:
-        if self.exercise_sets and 0 < set_index <= len(self.exercise_sets):
-            return self.exercise_sets[set_index - 1].rest_seconds
+        active = self.get_active_plan_sets()
+        if active and 0 < set_index <= len(active):
+            return active[set_index - 1].rest_seconds
         return self.rest_seconds
 
     def enable_advanced_sets(self):
@@ -137,6 +157,53 @@ class Exercise:
                 ))
         elif current > self.sets:
             self.exercise_sets = self.exercise_sets[:self.sets]
+
+    def _default_plan_sets(self) -> list[ExerciseSet]:
+        if self.exercise_sets:
+            return [deepcopy(es) for es in self.exercise_sets]
+        return [
+            ExerciseSet(
+                suggested_weight=self.suggested_weight,
+                suggested_reps=self.suggested_reps,
+                rest_seconds=self.rest_seconds,
+            )
+            for _ in range(self.sets)
+        ]
+
+    def enable_session_plans(self):
+        first_plan = SessionPlan(sets=self._default_plan_sets())
+        self.session_plans = [first_plan, deepcopy(first_plan)]
+        self.exercise_sets = []
+        self.current_plan_index = 0
+
+    def disable_session_plans(self):
+        self.session_plans = []
+        self.current_plan_index = 0
+
+    def add_session_plan(self):
+        if self.session_plans:
+            self.session_plans.append(deepcopy(self.session_plans[-1]))
+        else:
+            self.enable_session_plans()
+
+    def remove_session_plan(self, index: int):
+        if len(self.session_plans) > 1:
+            self.session_plans.pop(index)
+            if self.current_plan_index >= len(self.session_plans):
+                self.current_plan_index = len(self.session_plans) - 1
+
+    def sync_session_plans_sets_count(self):
+        for plan in self.session_plans:
+            current = len(plan.sets)
+            if current < self.sets:
+                for _ in range(self.sets - current):
+                    plan.sets.append(ExerciseSet(
+                        suggested_weight=self.suggested_weight,
+                        suggested_reps=self.suggested_reps,
+                        rest_seconds=self.rest_seconds,
+                    ))
+            elif current > self.sets:
+                plan.sets = plan.sets[:self.sets]
 
 
 class TrainingActionType(StrEnum):

@@ -1,7 +1,7 @@
 import flet as ft
 from fireboar.storage import load_trainings, save_trainings, get_training, save_training
 from fireboar.utils import show_dialog, guard, normalize_string
-from fireboar.training import Exercise, ExerciseSet, Progression, Training, ExerciseType, IntervalConfig
+from fireboar.training import Exercise, ExerciseSet, SessionPlan, Progression, Training, ExerciseType, IntervalConfig
 
 
 def string_to_hex_color(s: str) -> str:
@@ -171,7 +171,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         ], visible=not ex.is_advanced())
 
         # Advanced per-set rows (shown when advanced sets enabled)
-        advanced_column = ft.Column([], visible=ex.is_advanced())
+        advanced_column = ft.Column([], visible=ex.is_advanced() and not ex.has_session_plans())
 
         def _set_es_rest(es: ExerciseSet, v: str):
             value = int(normalize_string(v)) or es.rest_seconds
@@ -213,8 +213,83 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                     ),
                 ]))
 
-        if ex.is_advanced():
+        if ex.is_advanced() and not ex.has_session_plans():
             _build_advanced_rows()
+
+        # Session plans column (shown when session plans enabled)
+        session_plans_column = ft.Column([], visible=ex.has_session_plans())
+
+        def _build_session_plans_ui():
+            session_plans_column.controls.clear()
+            for pi, plan in enumerate(ex.session_plans):
+                header_controls = [
+                    ft.Text(f"Sesja {pi + 1}", size=16, weight=ft.FontWeight.BOLD, expand=True),
+                ]
+                if len(ex.session_plans) > 1:
+                    header_controls.append(
+                        ft.IconButton(
+                            icon=ft.Icons.DELETE_OUTLINE,
+                            icon_color="#ff4444",
+                            on_click=lambda e, pi=pi: _remove_session_plan(pi),
+                        )
+                    )
+                plan_rows = ft.Column([ft.Row(header_controls)])
+                for i, es in enumerate(plan.sets):
+                    plan_rows.controls.append(ft.Row([
+                        ft.Text(f"S{i + 1}", size=16, width=25),
+                        ft.TextField(
+                            label="kg",
+                            value=es.suggested_weight,
+                            expand=True,
+                            border_color="#555555",
+                            color="#ffffff",
+                            bgcolor="#111111",
+                            on_change=lambda e, es=es: setattr(es, 'suggested_weight', e.control.value.strip()),
+                        ),
+                        ft.TextField(
+                            label="Powt.",
+                            value=es.suggested_reps,
+                            expand=True,
+                            border_color="#555555",
+                            color="#ffffff",
+                            bgcolor="#111111",
+                            on_change=lambda e, es=es: setattr(es, 'suggested_reps', e.control.value.strip()),
+                        ),
+                        ft.TextField(
+                            label="Rest (s)",
+                            value=str(es.rest_seconds),
+                            expand=True,
+                            border_color="#555555",
+                            color="#ffffff",
+                            bgcolor="#111111",
+                            on_change=lambda e, es=es: _set_es_rest(es, e.control.value),
+                        ),
+                    ]))
+                session_plans_column.controls.append(
+                    ft.Container(
+                        content=plan_rows,
+                        border=ft.border.all(1, "#333333"),
+                        border_radius=5,
+                        padding=8,
+                        margin=ft.Margin(0, 4, 0, 4),
+                    )
+                )
+            session_plans_column.controls.append(
+                ft.Button("➕ Dodaj plan sesji", on_click=lambda e: _add_session_plan())
+            )
+
+        def _add_session_plan():
+            ex.add_session_plan()
+            _build_session_plans_ui()
+            page.update()
+
+        def _remove_session_plan(index: int):
+            ex.remove_session_plan(index)
+            _build_session_plans_ui()
+            page.update()
+
+        if ex.has_session_plans():
+            _build_session_plans_ui()
 
         def _toggle_advanced(e):
             if e.control.value:
@@ -229,12 +304,43 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                 simple_fields_col.visible = True
             page.update()
 
+        def _toggle_session_plans(e):
+            if e.control.value:
+                ex.enable_session_plans()
+                _build_session_plans_ui()
+                simple_fields_col.visible = False
+                advanced_column.visible = False
+                advanced_switch.visible = False
+                session_plans_column.visible = True
+                progression_col.visible = False
+            else:
+                ex.disable_session_plans()
+                session_plans_column.controls.clear()
+                session_plans_column.visible = False
+                advanced_switch.visible = True
+                simple_fields_col.visible = not ex.is_advanced()
+                advanced_column.visible = ex.is_advanced()
+                progression_col.visible = True
+            page.update()
+
         def _on_sets_change(e):
             ex.set_sets(e.control.value)
-            if ex.is_advanced():
+            if ex.has_session_plans():
+                ex.sync_session_plans_sets_count()
+                _build_session_plans_ui()
+                page.update()
+            elif ex.is_advanced():
                 ex.sync_advanced_sets_count()
                 _build_advanced_rows()
                 page.update()
+
+        advanced_switch = ft.Switch(
+            label="Zaawansowane serie",
+            value=ex.is_advanced(),
+            on_change=_toggle_advanced,
+            active_color="#4488ff",
+            visible=not ex.has_session_plans(),
+        )
 
         # Progression fields
         prog_weight_field = ft.TextField(
@@ -276,6 +382,11 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
 
         prog_weight_field.on_change = _update_progression
         prog_reps_field.on_change = _update_progression
+
+        progression_col = ft.Column([
+            ft.Text("Progresja (opcjonalna):", size=14, color="#aaaaaa"),
+            ft.Row([prog_weight_field, prog_reps_field]),
+        ], visible=not ex.has_session_plans())
 
         return ft.Card(
             ft.Container(
@@ -323,18 +434,19 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                             bgcolor="#111111",
                             on_change=lambda e: _on_sets_change(e),
                         ),
+                        advanced_switch,
                         ft.Switch(
-                            label="Zaawansowane serie (różne kg/powt./rest na serię)",
-                            value=ex.is_advanced(),
-                            on_change=_toggle_advanced,
-                            active_color="#4488ff",
+                            label="Obciążenie per sesja",
+                            value=ex.has_session_plans(),
+                            on_change=_toggle_session_plans,
+                            active_color="#ff8844",
                         ),
                         simple_fields_col,
                         advanced_column,
-                        ft.Text("Progresja (opcjonalna):", size=14, color="#aaaaaa"),
-                        ft.Row([prog_weight_field, prog_reps_field]),
+                        session_plans_column,
+                        progression_col,
                         ft.TextField(
-                            label="Identyfikator superserii (dodaj taki sam dla ćwiczeń naprzemiennych)",
+                            label="ID superserii (ćwiczenia naprzemienne)",
                             expand=True,
                             value=str(ex.superset_id),
                             border_color="#555555",

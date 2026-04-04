@@ -3,7 +3,7 @@ import math
 import time
 import flet as ft
 import flet_audio as fta
-from fireboar.storage import load_trainings, load_sessions, save_sessions
+from fireboar.storage import load_trainings, load_sessions, save_sessions, save_training
 from fireboar.utils import show_dialog, guard, normalize_string
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
 try:
@@ -89,7 +89,7 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
     else:
         last_session = None
 
-    async def start_training():
+    async def start_training(e):
         await start_ui(training, sessions, last_session, page, home_function)
 
     page.add(
@@ -98,8 +98,64 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
         ft.Text("Lecimy z tematem.", size=26, width=4000, text_align="center", weight=ft.FontWeight.BOLD),
         ft.Text("Jeśliś rozgrzany to dawaj.", size=26, width=4000, text_align="center", weight=ft.FontWeight.BOLD),
     )
+
+    exercises_with_plans = [ex for ex in training.exercises if ex.has_session_plans()]
+    if exercises_with_plans:
+        page.add(ft.Text("Wybierz plan sesji:", size=20, width=4000, text_align="center", color="#ffaa44"))
+        for ex in exercises_with_plans:
+            plan_col = ft.Column([])
+
+            def make_plan_callbacks(ex, plan_col):
+                def build():
+                    plan_col.controls.clear()
+                    idx = ex.current_plan_index % len(ex.session_plans)
+                    plan = ex.session_plans[idx]
+                    plan_col.controls.append(
+                        ft.Text(
+                            f"Sesja {idx + 1} / {len(ex.session_plans)}",
+                            size=18, width=4000, text_align="center", weight=ft.FontWeight.BOLD,
+                        )
+                    )
+                    for i, es in enumerate(plan.sets):
+                        w = es.suggested_weight or "brak"
+                        r = es.suggested_reps or "?"
+                        plan_col.controls.append(
+                            ft.Text(f"S{i + 1}: {w} x {r}", size=16, width=4000, text_align="center")
+                        )
+
+                def prev_plan(e):
+                    ex.current_plan_index = (ex.current_plan_index - 1) % len(ex.session_plans)
+                    build()
+                    page.update()
+
+                def next_plan(e):
+                    ex.current_plan_index = (ex.current_plan_index + 1) % len(ex.session_plans)
+                    build()
+                    page.update()
+
+                build()
+                return prev_plan, next_plan
+
+            prev_cb, next_cb = make_plan_callbacks(ex, plan_col)
+            page.add(
+                ft.Card(
+                    ft.Container(
+                        padding=15,
+                        content=ft.Column([
+                            ft.Text(ex.name, size=20, width=4000, text_align="center", weight=ft.FontWeight.BOLD),
+                            plan_col,
+                            ft.Row([
+                                ft.Button("← Poprzednia", on_click=prev_cb, expand=True),
+                                ft.Button("Następna →", on_click=next_cb, expand=True),
+                            ], alignment=ft.MainAxisAlignment.CENTER),
+                        ]),
+                    )
+                )
+            )
+
     add_set_header(page, ex=sets[0], action=None)
-    add_set_metadata(page, ex=sets[0], sessions=last_sessions, last_session=last_session)
+    if not sets[0].exercise.has_session_plans():
+        add_set_metadata(page, ex=sets[0], sessions=last_sessions, last_session=last_session)
     page.add(
         ft.Button("Jedziesz dziku!", on_click=start_training, width=4000, height=50),
         ft.Button("Wróć", on_click=home_function, width=4000, height=50),
@@ -132,6 +188,10 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         nonlocal session
         sessions.append(session)
         await save_sessions(sessions)
+        for ex in training.exercises:
+            if ex.has_session_plans():
+                ex.current_plan_index = (ex.current_plan_index + 1) % len(ex.session_plans)
+        await save_training(training)
         await show_dialog(
             page,
             "Trening zakończony",

@@ -7,7 +7,7 @@ Focus: Exercise.get_set_weight, get_set_reps, get_set_rest,
 import datetime
 import pytest
 from fireboar.training import (
-    Exercise, ExerciseSet, ExerciseType, IntervalConfig,
+    Exercise, ExerciseSet, SessionPlan, ExerciseType, IntervalConfig,
     Session, SessionSet, Training, PersonalBest, Progression,
 )
 
@@ -376,6 +376,181 @@ class TestAdvancedSetsManagement:
         ex.enable_advanced_sets()
         ex.sync_advanced_sets_count()
         assert len(ex.exercise_sets) == 3
+
+
+# ---------------------------------------------------------------------------
+# Session plans management
+# ---------------------------------------------------------------------------
+
+class TestSessionPlans:
+    def _ex(self, sets=3, weight="100", reps="8", rest=90):
+        return make_exercise(sets=sets, suggested_weight=weight, suggested_reps=reps, rest_seconds=rest)
+
+    def test_has_session_plans_false_by_default(self):
+        assert self._ex().has_session_plans() is False
+
+    def test_enable_session_plans_creates_two_plans(self):
+        ex = self._ex(sets=3)
+        ex.enable_session_plans()
+        assert len(ex.session_plans) == 2
+
+    def test_enable_session_plans_each_plan_has_correct_set_count(self):
+        ex = self._ex(sets=4)
+        ex.enable_session_plans()
+        for plan in ex.session_plans:
+            assert len(plan.sets) == 4
+
+    def test_enable_session_plans_copies_global_defaults(self):
+        ex = self._ex(sets=2, weight="80", reps="10", rest=60)
+        ex.enable_session_plans()
+        for plan in ex.session_plans:
+            for s in plan.sets:
+                assert s.suggested_weight == "80"
+                assert s.suggested_reps == "10"
+                assert s.rest_seconds == 60
+
+    def test_enable_session_plans_from_advanced_sets(self):
+        ex = self._ex(sets=2)
+        ex.exercise_sets = [
+            ExerciseSet(suggested_weight="60", suggested_reps="12", rest_seconds=60),
+            ExerciseSet(suggested_weight="80", suggested_reps="8", rest_seconds=90),
+        ]
+        ex.enable_session_plans()
+        # Plans should be based on existing advanced sets
+        assert ex.session_plans[0].sets[0].suggested_weight == "60"
+        assert ex.session_plans[0].sets[1].suggested_weight == "80"
+        # exercise_sets should be cleared
+        assert ex.exercise_sets == []
+
+    def test_enable_session_plans_plans_are_independent_copies(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.session_plans[0].sets[0].suggested_weight = "999"
+        assert ex.session_plans[1].sets[0].suggested_weight != "999"
+
+    def test_has_session_plans_true_after_enable(self):
+        ex = self._ex()
+        ex.enable_session_plans()
+        assert ex.has_session_plans() is True
+
+    def test_disable_session_plans(self):
+        ex = self._ex()
+        ex.enable_session_plans()
+        ex.disable_session_plans()
+        assert ex.session_plans == []
+        assert ex.has_session_plans() is False
+        assert ex.current_plan_index == 0
+
+    def test_get_set_weight_uses_active_plan(self):
+        ex = self._ex(sets=2, weight="50")
+        ex.enable_session_plans()
+        ex.session_plans[0].sets[0].suggested_weight = "10"
+        ex.session_plans[0].sets[1].suggested_weight = "15"
+        ex.session_plans[1].sets[0].suggested_weight = "20"
+        ex.session_plans[1].sets[1].suggested_weight = "20"
+        ex.current_plan_index = 0
+        assert ex.get_set_weight(1) == "10"
+        assert ex.get_set_weight(2) == "15"
+        ex.current_plan_index = 1
+        assert ex.get_set_weight(1) == "20"
+        assert ex.get_set_weight(2) == "20"
+
+    def test_current_plan_index_wraps(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()  # 2 plans
+        ex.session_plans[0].sets[0].suggested_weight = "A"
+        ex.session_plans[1].sets[0].suggested_weight = "B"
+        ex.current_plan_index = 2  # wraps to 0
+        assert ex.get_set_weight(1) == "A"
+
+    def test_add_session_plan_appends_copy_of_last(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.session_plans[-1].sets[0].suggested_weight = "XYZ"
+        ex.add_session_plan()
+        assert len(ex.session_plans) == 3
+        assert ex.session_plans[2].sets[0].suggested_weight == "XYZ"
+
+    def test_add_session_plan_is_independent_copy(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.add_session_plan()
+        ex.session_plans[1].sets[0].suggested_weight = "changed"
+        assert ex.session_plans[2].sets[0].suggested_weight != "changed"
+
+    def test_remove_session_plan(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.add_session_plan()  # now 3 plans
+        ex.remove_session_plan(1)
+        assert len(ex.session_plans) == 2
+
+    def test_remove_session_plan_wont_remove_last(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()  # 2 plans
+        ex.remove_session_plan(0)
+        assert len(ex.session_plans) == 1
+        ex.remove_session_plan(0)  # no-op, only 1 left
+        assert len(ex.session_plans) == 1
+
+    def test_remove_session_plan_clamps_current_index(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.current_plan_index = 1
+        ex.remove_session_plan(1)  # removes plan at index 1
+        assert ex.current_plan_index == 0
+
+    def test_sync_session_plans_sets_count_grows(self):
+        ex = self._ex(sets=2)
+        ex.enable_session_plans()
+        ex.sets = 4
+        ex.sync_session_plans_sets_count()
+        for plan in ex.session_plans:
+            assert len(plan.sets) == 4
+
+    def test_sync_session_plans_sets_count_shrinks(self):
+        ex = self._ex(sets=4)
+        ex.enable_session_plans()
+        ex.sets = 2
+        ex.sync_session_plans_sets_count()
+        for plan in ex.session_plans:
+            assert len(plan.sets) == 2
+
+    def test_get_set_reps_uses_active_plan(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.session_plans[0].sets[0].suggested_reps = "4"
+        ex.session_plans[1].sets[0].suggested_reps = "8"
+        ex.current_plan_index = 0
+        assert ex.get_set_reps(1) == "4"
+        ex.current_plan_index = 1
+        assert ex.get_set_reps(1) == "8"
+
+    def test_get_set_rest_uses_active_plan(self):
+        ex = self._ex(sets=1)
+        ex.enable_session_plans()
+        ex.session_plans[0].sets[0].rest_seconds = 30
+        ex.session_plans[1].sets[0].rest_seconds = 120
+        ex.current_plan_index = 0
+        assert ex.get_set_rest(1) == 30
+        ex.current_plan_index = 1
+        assert ex.get_set_rest(1) == 120
+
+    def test_session_plan_serialization_roundtrip(self):
+        ex = make_exercise(sets=2, suggested_weight="50", suggested_reps="6")
+        ex.enable_session_plans()
+        ex.session_plans[0].sets[0].suggested_weight = "10kg"
+        ex.session_plans[1].sets[1].suggested_reps = "3"
+        ex.current_plan_index = 1
+
+        json_str = ex.to_json()
+        ex2 = Exercise.from_json(json_str)
+
+        assert ex2.has_session_plans()
+        assert len(ex2.session_plans) == 2
+        assert ex2.session_plans[0].sets[0].suggested_weight == "10kg"
+        assert ex2.session_plans[1].sets[1].suggested_reps == "3"
+        assert ex2.current_plan_index == 1
 
 
 # ---------------------------------------------------------------------------
