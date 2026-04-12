@@ -51,10 +51,15 @@ def add_set_metadata(page: ft.Page, ex: SessionSet, sessions: list[Session], las
     if pb:
         card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
         card.content.content.controls.append(ft.Text("🥇 Twój max: " + pb.get_str(), size=22, width=4000, text_align="center"))
-    if last_session and ex.set_index < len(last_session.sets):
-        card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
-        last_set = last_session.sets[ex.set_index]
-        card.content.content.controls.append(ft.Text(last_set.get_last_info(), size=22, width=4000, text_align="center"))
+    if last_session:
+        last_set = None
+        for s in last_session.sets:
+            if s.get_id() == ex.get_id() and s.set_index == ex.set_index:
+                last_set = s
+                break
+        if last_set:
+            card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
+            card.content.content.controls.append(ft.Text(last_set.get_last_info(), size=22, width=4000, text_align="center"))
 
     if last_session and ex.exercise and ex.exercise.progression:
         prog = ex.exercise.progression
