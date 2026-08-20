@@ -467,9 +467,20 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
         )
 
 
+    def set_training_name(e):
+        training.name = e.control.value.strip()
+
     page.add(
         ft.Text("Edycja treningu:", size=24, margin=10, text_align="center", width=4000),
-        ft.Text(f"{training.name}", size=24, text_align="center", width=4000),
+        ft.TextField(
+            label="Nazwa treningu",
+            value=training.name,
+            border_color="#555555",
+            color="#ffffff",
+            bgcolor="#111111",
+            width=4000,
+            on_change=set_training_name,
+        ),
         ft.Text(""),
         ft.Button("➕ Dodaj ćwiczenie", on_click=add_exercise, width=4000, height=50),
     )

@@ -84,6 +84,14 @@ async def delete_session_from_list(id: str):
     sessions = await load_sessions()
     await save_sessions([s for s in sessions if s.id != id])
 
+async def swap_trainings_order(id_a: str, id_b: str):
+    names = json.loads(await _prefs_get(STORAGE_TRAININGS) or '[]')
+    if id_a not in names or id_b not in names:
+        return
+    idx_a, idx_b = names.index(id_a), names.index(id_b)
+    names[idx_a], names[idx_b] = names[idx_b], names[idx_a]
+    await _prefs_set(STORAGE_TRAININGS, json.dumps(names))
+
 async def archive_training_instance(id: str):
     names = set(json.loads(await _prefs_get(STORAGE_ARCHIVED_TRAININGS) or '[]'))
     names.add(id)

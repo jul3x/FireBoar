@@ -1,7 +1,7 @@
 import flet as ft
 from dataclasses import dataclass
 from typing import Callable
-from fireboar.storage import load_trainings, load_sessions, get_archived_trainings
+from fireboar.storage import load_trainings, load_sessions, get_archived_trainings, swap_trainings_order
 from fireboar.imports import export_json, import_json, import_kate_entry, export_kate
 from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session
@@ -56,6 +56,11 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
     async def export_kate_file(e):
         await export_kate(file_picker)
 
+    async def _move_training(e):
+        await swap_trainings_order(e.control.data["id"], e.control.data["other"])
+        await home_ui(page, ui, show_archived=show_archived)
+    move_training = guard(page, _move_training)
+
     page.add(
         ft.Container(
             expand=True,
@@ -75,13 +80,11 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
         ),
     )
 
-    for t in trainings:
-        if not show_archived and t.id in archived_trainings:
-            continue
+    visible_trainings = [t for t in trainings if (t.id in archived_trainings) == show_archived]
 
-        if show_archived and t.id not in archived_trainings:
-            continue
-
+    for i, t in enumerate(visible_trainings):
+        is_first = i == 0
+        is_last = i == len(visible_trainings) - 1
         sessions_for_t = t.get_sessions(sessions)
         page.add(
             ft.Card(
@@ -105,6 +108,26 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
                                         "id": t.id,
                                         "dearchive": show_archived,
                                     }
+                                ),
+                            ]),
+                            ft.Row([
+                                ft.TextButton(
+                                    "⬆ Wyżej",
+                                    on_click=move_training,
+                                    disabled=is_first,
+                                    data={
+                                        "id": t.id,
+                                        "other": visible_trainings[i - 1].id if not is_first else t.id,
+                                    },
+                                ),
+                                ft.TextButton(
+                                    "⬇ Niżej",
+                                    on_click=move_training,
+                                    disabled=is_last,
+                                    data={
+                                        "id": t.id,
+                                        "other": visible_trainings[i + 1].id if not is_last else t.id,
+                                    },
                                 ),
                             ]),
                         ])
