@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [tool.flet.flutter.pubspec.dependency_overrides]
-flet = { git = { url = "https://github.com/flet-dev/flet.git", ref = "main", path = "packages/flet" } }
+flet = { git = { url = "https://github.com/flet-dev/flet.git", ref = "v0.83.1", path = "packages/flet" } }
 flet_audio = { path = "../../packages/flet_audio" }
 
 [dependency-groups]
