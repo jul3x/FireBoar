@@ -5,6 +5,7 @@ from fireboar.storage import load_trainings, load_sessions, get_archived_trainin
 from fireboar.imports import export_json, import_json, import_kate_entry, export_kate
 from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session
+from fireboar.version import VERSION, BUILD_DATETIME
 
 
 logo = ft.Image(
@@ -123,6 +124,13 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
         ft.Button(
             "Pokaż aktualne" if show_archived else "Pokaż zarchiwizowane",
             on_click=show_trainings, expand=True, width=4000, height=50
+        ),
+        ft.Text(
+            f"v{VERSION} · {BUILD_DATETIME}",
+            size=11,
+            color="#555555",
+            text_align="center",
+            width=4000,
         ),
     )
 
