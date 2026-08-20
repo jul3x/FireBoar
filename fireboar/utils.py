@@ -1,5 +1,6 @@
 import flet as ft
 import re
+import traceback
 from typing import Callable
 import asyncio
 
@@ -24,6 +25,10 @@ def guard(page: ft.Page, fn):
             return await fn(*args, **kwargs)
         except StorageError as e:
             await show_fatal_error(page, str(e))
+        except Exception:
+            # On a phone there is no console - an unexpected error would just leave the app
+            # sitting there, so put the traceback on screen where it can be read.
+            await show_fatal_error(page, traceback.format_exc()[-1500:])
     return wrapper
 
 

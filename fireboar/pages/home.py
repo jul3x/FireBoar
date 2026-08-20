@@ -29,9 +29,35 @@ class UI:
 
 
 async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
+    # Loading happens before anything is drawn, so without this the flet startup screen
+    # (the logo) stays up for the whole read and a slow load is indistinguishable from a hang.
+    status = ft.Text("Wczytuję dane...", size=18, text_align="center")
+    page.controls.clear()
+    page.bgcolor = "#222222"
+    page.add(
+        ft.Container(
+            expand=True,
+            alignment=ft.Alignment.CENTER,
+            content=ft.Column(
+                [ft.ProgressRing(width=40, height=40), status],
+                spacing=16,
+                tight=True,
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        )
+    )
+    page.update()
+
+    def show_progress(done: int, total: int):
+        # every item would mean one round-trip to the UI per session - throttle it
+        if total and (done == total or done % 10 == 0):
+            status.value = f"Wczytuję sesyjki: {done}/{total}"
+            page.update()
+
     trainings = await load_trainings()
     archived_trainings = await get_archived_trainings()
-    sessions = await load_sessions()
+    sessions = await load_sessions(on_progress=show_progress)
     page.controls.clear()
     page.bgcolor = "#222222"
 

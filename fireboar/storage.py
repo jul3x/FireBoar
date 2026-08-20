@@ -12,6 +12,8 @@ STORAGE_TRAINING = "training"
 STORAGE_SESSIONS = "sessions"
 STORAGE_SESSION = "session"
 
+PREFS_CONCURRENCY = 8  # parallel SharedPreferences reads; keeps the bridge busy without flooding it
+
 _prefs = None
 _prefs_keepalive = None  # extra ref to prevent flet 0.83+ unregister_services() from GC'ing the singleton
 
@@ -39,20 +41,33 @@ async def _prefs_set(key: str, value: str):
             print(f"SharedPreferences.set timeout (attempt {attempt + 1}/5): {key}")
     raise StorageError(f"Nie można zapisać danych po 5 próbach.\nWyłącz tryb oszczędzania energii i uruchom ponownie.")
 
-async def load_trainings() -> list[Training]:
+async def _prefs_get_many(keys: list[str], on_progress=None) -> list[str | None]:
+    """Read many keys at once. One round-trip per key done sequentially is what made
+    startup look frozen on the splash screen once a lot of sessions piled up."""
+    results: list[str | None] = [None] * len(keys)
+    semaphore = asyncio.Semaphore(PREFS_CONCURRENCY)
+    done = 0
+
+    async def fetch(index: int, key: str):
+        nonlocal done
+        async with semaphore:
+            results[index] = await _prefs_get(key)
+            done += 1
+            if on_progress:
+                on_progress(done, len(keys))
+
+    await asyncio.gather(*(fetch(i, key) for i, key in enumerate(keys)))
+    return results
+
+async def load_trainings(on_progress=None) -> list[Training]:
     names = json.loads(await _prefs_get(STORAGE_TRAININGS) or '[]')
-    data = []
-    for name in names:
-        data.append(Training.from_json(await _prefs_get(STORAGE_TRAINING + ":" + name)))
+    raw = await _prefs_get_many([STORAGE_TRAINING + ":" + name for name in names], on_progress)
+    return [Training.from_json(r) for r in raw]
 
-    return data
-
-async def load_sessions() -> list[Session]:
+async def load_sessions(on_progress=None) -> list[Session]:
     names = json.loads(await _prefs_get(STORAGE_SESSIONS) or '[]')
-    data = []
-    for name in names:
-        data.append(Session.from_json(await _prefs_get(STORAGE_SESSION + ":" + name)))
-    return data
+    raw = await _prefs_get_many([STORAGE_SESSION + ":" + name for name in names], on_progress)
+    return [Session.from_json(r) for r in raw]
 
 async def save_trainings(trainings: list[Training]):
     # TODO - remove old

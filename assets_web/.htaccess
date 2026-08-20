@@ -1,16 +1,24 @@
-# Disable caching for files the browser must always re-check on deploy
-<FilesMatch "^(index\.html|flutter_service_worker\.js|flutter_bootstrap\.js|manifest\.json)$">
-    Header set Cache-Control "no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "0"
+# NOTE ON ORDER: Apache applies matching <FilesMatch> blocks in file order and
+# "Header set" overwrites the previous value, so the LAST matching block wins.
+# The broad rules go first, the never-cache rules last.
+
+# Flutter web output is NOT content-hashed - main.dart.js, flutter.js and friends keep
+# the same names across builds. "immutable" here would pin one build in the browser for
+# a year, so a redeploy leaves an old Dart client talking to a new Python payload.
+# "no-cache" still allows 304s, so repeat loads stay fast.
+<FilesMatch "\.(js|wasm|mjs|json)$">
+    Header set Cache-Control "no-cache"
 </FilesMatch>
 
-# Long-lived cache for content-hashed assets (JS/WASM bundles, canvaskit, pyodide)
-<FilesMatch "\.(js|wasm|mjs)$">
-    Header set Cache-Control "public, max-age=31536000, immutable"
-</FilesMatch>
-
-# Medium cache for images, audio, fonts
+# Images, audio and fonts rarely change
 <FilesMatch "\.(png|jpg|jpeg|gif|ico|svg|mp3|woff|woff2|ttf)$">
     Header set Cache-Control "public, max-age=86400"
+</FilesMatch>
+
+# Boot chain + Python payload: never cached, always re-fetched on deploy.
+# Must stay last so it overrides the rules above.
+<FilesMatch "^(index\.html|flutter_service_worker\.js|flutter_bootstrap\.js|flutter\.js|main\.dart\.js|manifest\.json|version\.json|app\.zip|app\.zip\.hash)$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
 </FilesMatch>
