@@ -2,6 +2,7 @@ import flet as ft
 from fireboar.storage import delete_session_from_list, load_sessions
 from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session, PersonalBest
+from fireboar.charts import build_progress_chart
 
 
 async def sessions_show_ui(training: Training, sessions: list[Session], page: ft.Page, home_function):
@@ -100,6 +101,9 @@ async def pb_show_ui(training: Training, sessions: list[Session], page: ft.Page,
                             controls=[
                                 ft.Text("🥇 Twój max: " + (personal_best.get_str() if personal_best else "brak"), margin=10, size=16),
                                 ft.Text("⌚ Ostatnio: " + (last_session_best.get_str() if last_session_best else "brak"), margin=10, size=16),
+                                ft.Text("📊 Obciążenie w kolejnych sesjach", margin=10, size=16),
+                                build_progress_chart(exercise, last_sessions, page=page),
+                                ft.Text(""),
                             ]
                         ),
                         expanded=True,

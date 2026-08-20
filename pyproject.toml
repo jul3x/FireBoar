@@ -10,6 +10,7 @@ authors = [
 dependencies = [
     "flet==0.83.1",
     "flet-audio==0.83.1",
+    "flet-charts==0.83.1",
     "dataclasses-json",
     "openpyxl",
     "httpx",

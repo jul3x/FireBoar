@@ -6,6 +6,7 @@ import flet_audio as fta
 from fireboar.storage import load_trainings, load_sessions, save_sessions, save_training
 from fireboar.utils import show_dialog, guard, normalize_string
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
+from fireboar.charts import build_progress_chart, has_progress_data
 try:
     from js import navigator
 except ImportError:
@@ -34,7 +35,13 @@ def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None,
     page.add(card)
 
 
-def add_set_metadata(page: ft.Page, ex: SessionSet, sessions: list[Session], last_session: Session | None):
+def add_set_metadata(
+    page: ft.Page,
+    ex: SessionSet,
+    sessions: list[Session],
+    last_session: Session | None,
+    training_sessions: list[Session] | None = None,
+):
     card = ft.Card(
        ft.Container(
            padding=20,
@@ -78,6 +85,14 @@ def add_set_metadata(page: ft.Page, ex: SessionSet, sessions: list[Session], las
             card.content.content.controls.append(
                 ft.Text(f"📈 Na dziś: {w_str} x {new_r}", size=22, width=4000, text_align="center", color="#88ff88")
             )
+
+    chart_sessions = training_sessions if training_sessions is not None else sessions
+    if ex.exercise and has_progress_data(ex.exercise, chart_sessions):
+        card.content.content.controls.append(ft.Divider(color="#aaaaaa"))
+        card.content.content.controls.append(
+            ft.Text("📊 Obciążenie w kolejnych sesjach", size=22, width=4000, text_align="center")
+        )
+        card.content.content.controls.append(build_progress_chart(ex.exercise, chart_sessions, compact=True, page=page))
 
     page.add(card)
 
@@ -162,7 +177,7 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
 
     add_set_header(page, ex=sets[0], action=None)
     if not sets[0].exercise.has_session_plans():
-        add_set_metadata(page, ex=sets[0], sessions=last_sessions, last_session=last_session)
+        add_set_metadata(page, ex=sets[0], sessions=last_sessions, last_session=last_session, training_sessions=last_sessions)
     page.add(
         ft.Button("Jedziesz dziku!", on_click=start_training, width=4000, height=50),
         ft.Button("Wróć", on_click=home_function, width=4000, height=50),
@@ -181,6 +196,9 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
     session = Session(training=training.id)
     sets = training.get_sets_list()
+    # snapshot of this training's history - the session numbering on the chart must not
+    # shift when the current session gets appended to `sessions` at the end
+    training_sessions = training.get_sessions(sessions)
 
     async def save_set(e):
         exited_flag = e.control.data
@@ -287,7 +305,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         ex = sets[set_index]
         page.add(timer_text)
         add_set_header(page, ex=next_set or ex, action=action, is_next=next_set is not None)
-        add_set_metadata(page, ex=next_set or ex, sessions=sessions, last_session=last_session)
+        add_set_metadata(page, ex=next_set or ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
 
         timer_seconds = ex.get_rest_seconds() if not is_start else 10
         label = (lambda s: f"\nStartujemy za: \n⏱ {s}s\n") if is_start else (lambda s: f"\nRest: \n⏱ {s}s\n")
@@ -300,7 +318,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         ex = sets[set_index]
         page.add(timer_text)
         add_set_header(page, ex=ex, action=action, is_next=False)
-        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
+        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
 
         await _run_timer(
             ex.exercise.interval_config.rest_time,
@@ -315,7 +333,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         ex = sets[set_index]
         page.add(timer_text)
         add_set_header(page, ex=ex, action=action, is_next=False)
-        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
+        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
 
         await _run_timer(
             ex.exercise.interval_config.working_time,
@@ -351,7 +369,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
                 ft.Button("Zakończ trening (bez ostatniej serii)", on_click=end_session, data=[saved, exited], width=4000, height=50),
             ]),
         )
-        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session)
+        add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
         page.update()
 
     for set_index in range(len(sets)):
