@@ -77,6 +77,7 @@ class Exercise:
     progression: Progression | None = None
     session_plans: list[SessionPlan] = field(default_factory=list)
     current_plan_index: int = 0
+    gif_url: str = ""
 
     def set_name(self, name: str, header):
         self.name = name.strip()

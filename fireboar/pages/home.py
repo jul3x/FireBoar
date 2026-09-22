@@ -1,11 +1,12 @@
 import flet as ft
 from dataclasses import dataclass
 from typing import Callable
-from fireboar.storage import load_trainings, load_sessions, get_archived_trainings, swap_trainings_order
+from fireboar.storage import load_trainings, load_sessions, get_archived_trainings, swap_trainings_order, get_gifs_enabled, set_gifs_enabled
 from fireboar.imports import export_json, import_json, import_kate_entry, export_kate
 from fireboar.utils import show_dialog, guard
 from fireboar.training import Training, Session
 from fireboar.version import VERSION, BUILD_DATETIME
+from fireboar.exercise_gifs import ATTRIBUTION
 
 
 logo = ft.Image(
@@ -58,6 +59,7 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
     trainings = await load_trainings()
     archived_trainings = await get_archived_trainings()
     sessions = await load_sessions(on_progress=show_progress)
+    gifs_enabled = await get_gifs_enabled()
     page.controls.clear()
     page.bgcolor = "#222222"
 
@@ -86,6 +88,10 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
         await swap_trainings_order(e.control.data["id"], e.control.data["other"])
         await home_ui(page, ui, show_archived=show_archived)
     move_training = guard(page, _move_training)
+
+    async def _toggle_gifs(e):
+        await set_gifs_enabled(e.control.value)
+    toggle_gifs = guard(page, _toggle_gifs)
 
     page.add(
         ft.Container(
@@ -174,8 +180,19 @@ async def home_ui(page: ft.Page, ui: UI, show_archived: bool = False):
             "Pokaż aktualne" if show_archived else "Pokaż zarchiwizowane",
             on_click=show_trainings, expand=True, width=4000, height=50
         ),
+        ft.Row(
+            [ft.Switch(label="🎞️ GIF-y ćwiczeń", value=gifs_enabled, on_change=toggle_gifs, active_color="#ff8844")],
+            alignment=ft.MainAxisAlignment.CENTER,
+        ),
         ft.Text(
             f"v{VERSION} · {BUILD_DATETIME}",
+            size=11,
+            color="#555555",
+            text_align="center",
+            width=4000,
+        ),
+        ft.Text(
+            ATTRIBUTION,
             size=11,
             color="#555555",
             text_align="center",

@@ -50,3 +50,9 @@ flet run --web
 ```
 ./build.sh
 ```
+
+## Credits
+
+Exercise names and GIFs come from [ExerciseDB](https://oss.exercisedb.dev) by
+[AscendAPI](https://ascendapi.com) (free V1 dataset: non-commercial use, attribution required).
+The GIFs are not re-hosted: they load from ExerciseDB's servers through the wsrv.nl image proxy.

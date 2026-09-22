@@ -3,6 +3,7 @@ import re
 import traceback
 from typing import Callable
 import asyncio
+from fireboar.exercise_gifs import display_url
 
 
 class StorageError(Exception):
@@ -30,6 +31,18 @@ def guard(page: ft.Page, fn):
             # sitting there, so put the traceback on screen where it can be read.
             await show_fatal_error(page, traceback.format_exc()[-1500:])
     return wrapper
+
+
+def exercise_gif(url: str, size: int) -> ft.Image:
+    return ft.Image(
+        src=display_url(url),
+        width=size,
+        height=size,
+        fit=ft.BoxFit.CONTAIN,
+        border_radius=8,
+        gapless_playback=True,
+        error_content=ft.Container(width=size, height=size),
+    )
 
 
 async def vibrate():

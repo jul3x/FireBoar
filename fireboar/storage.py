@@ -11,6 +11,7 @@ STORAGE_ARCHIVED_TRAININGS = "archived-trainings"
 STORAGE_TRAINING = "training"
 STORAGE_SESSIONS = "sessions"
 STORAGE_SESSION = "session"
+STORAGE_SETTING_GIFS = "settings:gifs"
 
 PREFS_CONCURRENCY = 8  # parallel SharedPreferences reads; keeps the bridge busy without flooding it
 
@@ -116,6 +117,13 @@ async def dearchive_training_instance(id: str):
     names = set(json.loads(await _prefs_get(STORAGE_ARCHIVED_TRAININGS) or '[]'))
     names.remove(id)
     await _prefs_set(STORAGE_ARCHIVED_TRAININGS, json.dumps(list(names)))
+
+async def get_gifs_enabled() -> bool:
+    # not set yet = on, so the feature is visible until someone turns it off
+    return await _prefs_get(STORAGE_SETTING_GIFS) != "0"
+
+async def set_gifs_enabled(enabled: bool):
+    await _prefs_set(STORAGE_SETTING_GIFS, "1" if enabled else "0")
 
 async def get_archived_trainings() -> set[str]:
     return set(json.loads(await _prefs_get(STORAGE_ARCHIVED_TRAININGS) or '[]'))

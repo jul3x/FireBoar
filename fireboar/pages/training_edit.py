@@ -1,6 +1,7 @@
 import flet as ft
-from fireboar.storage import load_trainings, save_trainings, get_training, save_training
-from fireboar.utils import show_dialog, guard, normalize_string
+from fireboar.storage import load_trainings, save_trainings, get_training, save_training, get_gifs_enabled
+from fireboar.utils import show_dialog, guard, normalize_string, exercise_gif
+from fireboar.exercise_gifs import find_gifs, display_url, ATTRIBUTION
 from fireboar.training import Exercise, ExerciseSet, SessionPlan, Progression, Training, ExerciseType, IntervalConfig
 
 
@@ -60,6 +61,7 @@ def hsl_to_rgb(h, s, l):
 async def training_edit_ui(training_id: str, page: ft.Page, home_function):
     page.controls.clear()
     training = await get_training(training_id)
+    show_gifs = await get_gifs_enabled()
 
     async def add_exercise(e):
         training.add_exercise()
@@ -105,6 +107,91 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
 
     def create_card(ex: Exercise, new: bool = False):
         header = ft.Text(ex.name or 'Kliknij by rozwinąć')
+        header_gif = exercise_gif(ex.gif_url, size=40)
+        header_gif.visible = show_gifs and bool(ex.gif_url)
+
+        # GIF picker - results come from the bundled ExerciseDB catalog (see fireboar/exercise_gifs.py)
+        gif_preview = exercise_gif(ex.gif_url, size=160)
+        gif_preview.margin = 8
+        gif_preview.visible = bool(ex.gif_url)
+        gif_query = ft.TextField(
+            label="Szukaj GIF (PL/EN)",
+            expand=True,
+            value=ex.name,
+            border_color="#555555",
+            color="#ffffff",
+            bgcolor="#111111",
+        )
+        gif_status = ft.Text("", color="#aaaaaa", visible=False)
+        gif_results = ft.Row([], wrap=True)
+        last_gif_query = None
+        auto_gif = None  # GIF picked automatically - a later name lookup may replace it, a hand-picked one stays
+
+        def _highlight_gif_results():
+            for c in gif_results.controls:
+                c.border = ft.Border.all(3, "#ff8844" if c.data == ex.gif_url else "#333333")
+
+        def _set_gif(url: str, auto: bool = False):
+            nonlocal auto_gif
+            auto_gif = url if auto else None
+            ex.gif_url = url
+            header_gif.src = gif_preview.src = display_url(url)
+            header_gif.visible = gif_preview.visible = bool(url)
+            _highlight_gif_results()
+            page.update()
+
+        async def _search_gifs(auto: bool = False):
+            nonlocal last_gif_query
+            query = (gif_query.value or "").strip()
+            if not query:
+                return
+            last_gif_query = query
+            gif_status.value = "szukam..."
+            gif_status.visible = True
+            page.update()
+
+            results = await find_gifs(query)
+            gif_results.controls = [
+                ft.Container(
+                    content=exercise_gif(r["gif"], size=90),
+                    data=r["gif"],
+                    tooltip=r["name"],
+                    border_radius=8,
+                    padding=2,
+                    on_click=lambda e, url=r["gif"]: _set_gif(url),
+                )
+                for r in results
+            ]
+            gif_status.value = "brak wyników - spróbuj po angielsku" if not results else ""
+            gif_status.visible = not results
+            if auto and results and (not ex.gif_url or ex.gif_url == auto_gif):
+                _set_gif(results[0]["gif"], auto=True)
+            else:
+                _highlight_gif_results()
+                page.update()
+
+        async def _search_gifs_click(e):
+            await _search_gifs()
+
+        async def _search_gifs_for_name(e):
+            # Leaving the name field looks up a GIF on its own; an already chosen one is kept
+            if not show_gifs or not ex.name or ex.name == last_gif_query:
+                return
+            gif_query.value = ex.name
+            await _search_gifs(auto=True)
+
+        gif_block = ft.Column([
+            gif_preview,
+            gif_query,
+            ft.Row([
+                ft.Button("🔍 Szukaj GIF", on_click=guard(page, _search_gifs_click)),
+                ft.Button("Usuń GIF", on_click=lambda e: _set_gif("")),
+            ]),
+            gif_status,
+            gif_results,
+            ft.Text(ATTRIBUTION, size=11, color="#888888"),
+        ], visible=show_gifs)
+        search_gifs_for_name = guard(page, _search_gifs_for_name)
 
         interval_fields = [
             ft.TextField(
@@ -399,6 +486,7 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                 bgcolor=ft.Colors.with_opacity(0.1, string_to_hex_color(ex.superset_id)),
                 content=ft.ExpansionTile(
                     title=ft.Row(controls=[
+                        header_gif,
                         header,
                     ]),
                     controls=ft.Column(
@@ -427,7 +515,10 @@ async def training_edit_ui(training_id: str, page: ft.Page, home_function):
                             color="#ffffff",
                             bgcolor="#111111",
                             on_change=lambda e, ex=ex, header=header: ex.set_name(e.control.value, header),
+                            on_blur=search_gifs_for_name,
+                            on_submit=search_gifs_for_name,
                         ),
+                        gif_block,
                         ft.TextField(
                             label="Serie",
                             expand=True,

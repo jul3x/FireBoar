@@ -3,8 +3,8 @@ import math
 import time
 import flet as ft
 import flet_audio as fta
-from fireboar.storage import load_trainings, load_sessions, save_sessions, save_training
-from fireboar.utils import show_dialog, guard, normalize_string
+from fireboar.storage import load_trainings, load_sessions, save_sessions, save_training, get_gifs_enabled
+from fireboar.utils import show_dialog, guard, normalize_string, exercise_gif
 from fireboar.training import Training, Session, PersonalBest, SessionSet, TrainingAction, TrainingActionType
 from fireboar.charts import build_progress_chart, has_progress_data
 try:
@@ -13,7 +13,14 @@ except ImportError:
     navigator = None
 
 
-def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None, is_next: bool = False):
+def add_set_header(
+    page: ft.Page,
+    ex: SessionSet,
+    action: TrainingAction | None,
+    is_next: bool = False,
+    show_gif: bool = True,
+):
+    gif_url = ex.exercise.gif_url if ex.exercise and show_gif else ""
     card = ft.Card(
        ft.Container(
            padding=20,
@@ -23,6 +30,31 @@ def add_set_header(page: ft.Page, ex: SessionSet, action: TrainingAction | None,
        ),
        margin=ft.Margin(bottom=15, top=15),
     )
+
+    if gif_url:
+        # GIF + title centered together as one group. The text column must only be as wide
+        # as its text for that - a Divider would stretch it, so lines are just stacked.
+        texts = ft.Column(
+            spacing=6,
+            expand=True,
+            expand_loose=True,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        if is_next:
+            texts.controls.append(ft.Text("Następne:", size=22, text_align="center"))
+        for header in ex.get_header(action):
+            texts.controls.append(ft.Text(header, weight="bold", size=22, text_align="center"))
+
+        gif = exercise_gif(gif_url, size=120)
+        gif.margin = 8
+        card.content.content = ft.Row(
+            [gif, texts],
+            spacing=12,
+            alignment=ft.MainAxisAlignment.CENTER,
+            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+        )
+        page.add(card)
+        return
 
     if is_next:
         card.content.content.controls.append(ft.Text("Następne:", size=22, width=4000, text_align="center"))
@@ -114,6 +146,8 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
     async def start_training(e):
         await start_ui(training, sessions, last_session, page, home_function)
 
+    show_gifs = await get_gifs_enabled()
+
     page.add(
         ft.Text(""),
         ft.Text(f"Trening: {training.name}", size=26, width=4000, text_align="center", weight=ft.FontWeight.BOLD),
@@ -175,7 +209,7 @@ async def start_entry_ui(training: Training, sessions: list[Session], page: ft.P
                 )
             )
 
-    add_set_header(page, ex=sets[0], action=None)
+    add_set_header(page, ex=sets[0], action=None, show_gif=show_gifs)
     if not sets[0].exercise.has_session_plans():
         add_set_metadata(page, ex=sets[0], sessions=last_sessions, last_session=last_session, training_sessions=last_sessions)
     page.add(
@@ -196,6 +230,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
     session = Session(training=training.id)
     sets = training.get_sets_list()
+    show_gifs = await get_gifs_enabled()
     # snapshot of this training's history - the session numbering on the chart must not
     # shift when the current session gets appended to `sessions` at the end
     training_sessions = training.get_sessions(sessions)
@@ -304,7 +339,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         ex = sets[set_index]
         page.add(timer_text)
-        add_set_header(page, ex=next_set or ex, action=action, is_next=next_set is not None)
+        add_set_header(page, ex=next_set or ex, action=action, is_next=next_set is not None, show_gif=show_gifs)
         add_set_metadata(page, ex=next_set or ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
 
         timer_seconds = ex.get_rest_seconds() if not is_start else 10
@@ -317,7 +352,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         ex = sets[set_index]
         page.add(timer_text)
-        add_set_header(page, ex=ex, action=action, is_next=False)
+        add_set_header(page, ex=ex, action=action, is_next=False, show_gif=show_gifs)
         add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
 
         await _run_timer(
@@ -332,7 +367,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
 
         ex = sets[set_index]
         page.add(timer_text)
-        add_set_header(page, ex=ex, action=action, is_next=False)
+        add_set_header(page, ex=ex, action=action, is_next=False, show_gif=show_gifs)
         add_set_metadata(page, ex=ex, sessions=sessions, last_session=last_session, training_sessions=training_sessions)
 
         await _run_timer(
@@ -358,7 +393,7 @@ async def start_ui(training: Training, sessions: list[Session], last_session: Se
         page.controls.clear()
         page.bgcolor = "#222222"
         page.add(timer_text)
-        add_set_header(page, ex=ex, action=action, is_next=False)
+        add_set_header(page, ex=ex, action=action, is_next=False, show_gif=show_gifs)
 
         page.add(
             weight,
