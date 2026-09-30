@@ -24,3 +24,9 @@ cp assets_web/.htaccess build/web/.htaccess
 sed -i "s|<meta charset=\"UTF-8\">|<meta charset=\"UTF-8\">\n  <meta http-equiv=\"Cache-Control\" content=\"no-cache, no-store, must-revalidate\">\n  <meta http-equiv=\"Pragma\" content=\"no-cache\">\n  <meta http-equiv=\"Expires\" content=\"0\">|" build/web/index.html
 echo "Cache busting meta tags applied"
 
+# Ask for persistent storage: SharedPreferences on web is localStorage, which is "best-effort"
+# by default and Chrome may evict it under storage pressure. An installed PWA is usually
+# granted persistence automatically. Does not protect against manual "clear site data".
+sed -i "s|</head>|  <script>if (navigator.storage \&\& navigator.storage.persist) navigator.storage.persist();</script>\n</head>|" build/web/index.html
+echo "Persistent storage request applied"
+

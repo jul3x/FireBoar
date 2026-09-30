@@ -14,6 +14,13 @@ from fireboar.utils import show_dialog, normalize_string
 
 async def import_json(page, files):
     if not files:
+        # Also reached when the user cancels the picker - keep the message neutral.
+        await show_dialog(
+            page,
+            "Nie wczytano pliku",
+            "Plik do mnie nie dotarł. Spróbuj jeszcze raz, najlepiej z folderu Pobrane.",
+            "Ok",
+        )
         return
 
     file = files[0]
@@ -31,6 +38,22 @@ async def import_json(page, files):
         data = json.loads(file_bytes)
         trainings = [Training.from_json(t) for t in data["trainings"]]
         sessions = [Session.from_json(s) for s in data["sessions"]]
+        # Every entry is a separate write, which takes a while on a phone - show that we're busy.
+        page.controls.clear()
+        page.add(
+            ft.Container(
+                expand=True,
+                alignment=ft.Alignment.CENTER,
+                content=ft.Column(
+                    [ft.ProgressRing(width=40, height=40), ft.Text("Wgrywam backup...", size=18, text_align="center")],
+                    spacing=16,
+                    tight=True,
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+            )
+        )
+        page.update()
         await save_trainings(trainings)
         await save_sessions(sessions)
     except Exception as e:
